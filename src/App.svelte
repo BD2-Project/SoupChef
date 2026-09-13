@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { client } from './lib/client'
   import StatusBar from './lib/components/StatusBar.svelte'
   import ThemeToggle from './lib/components/ThemeToggle.svelte'
   import FilesPanel from './lib/panels/FilesPanel.svelte'
@@ -32,5 +33,5 @@
     <div class="grid min-h-0 animate-rise [animation-delay:120ms]"><ResultsPanel /></div>
   </main>
 
-  <StatusBar source="SoupDB · mock" plan={query.result?.plan} />
+  <StatusBar source={client.source} connected={client.connected} plan={query.result?.plan} />
 </div>

@@ -3,10 +3,11 @@
 
   interface Props {
     source: string
+    connected: boolean
     plan?: PlanNode | null
   }
 
-  let { source, plan = null }: Props = $props()
+  let { source, connected, plan = null }: Props = $props()
 
   const sum = (node: PlanNode, key: 'disk_reads' | 'disk_writes'): number =>
     node[key] + node.children.reduce((total, child) => total + sum(child, key), 0)
@@ -25,7 +26,7 @@
   class="flex h-7 shrink-0 items-center justify-between gap-4 border-t border-line bg-sunken px-3 text-micro text-muted transition-colors duration-200"
 >
   <div class="flex items-center gap-2">
-    <span class="size-1.5 rounded-full bg-accent" aria-hidden="true"></span>
+    <span class="size-1.5 rounded-full {connected ? 'bg-accent' : 'bg-danger'}" aria-hidden="true"></span>
     <span>{source}</span>
   </div>
   <dl class="flex items-center gap-4 font-mono tabular">

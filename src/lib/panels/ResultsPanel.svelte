@@ -23,13 +23,7 @@
   {/snippet}
 
   {#if !result}
-    <div class="px-3 py-3 text-subtle">
-      <p>Ejecuta una consulta para ver sus filas.</p>
-      <p class="mt-1">
-        Para probar volumen:
-        <code class="font-mono text-accent-text">SELECT * FROM chunks LIMIT 100000</code>
-      </p>
-    </div>
+    <p class="px-3 py-3 text-subtle">Ejecuta una consulta para ver sus filas.</p>
   {:else}
     {#key result}
       <div class="h-full animate-rise [animation-duration:240ms]">

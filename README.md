@@ -17,7 +17,15 @@ Implementa la interfaz de usuario del enunciado (2.1.5) con cuatro paneles:
 SoupChef (Svelte + Tauri)  ──invoke──▶  rsoup (driver Rust, TCP)  ──▶  SoupDB (motor Python)
 ```
 
-Mientras `rsoup` no esté listo, la UI trabaja contra una capa de datos mock con los mismos tipos del contrato.
+Mientras `rsoup` no esté integrado, la app arranca **sin conexión**: los paneles funcionan pero no hay datos. Para desarrollar con datos de ejemplo (tablas `papers` y `chunks` generadas en memoria), activa el mock:
+
+```bash
+cp .env.example .env.local
+# en .env.local: VITE_SOUPCHEF_MOCK=true
+pnpm dev
+```
+
+El mock usa los mismos tipos del contrato y no se incluye en el build cuando la variable no está activa.
 
 ## Stack
 
