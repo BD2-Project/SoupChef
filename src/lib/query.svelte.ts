@@ -26,11 +26,16 @@ class QueryState {
     }
   }
 
+  loadingTables = $state(false)
+
   async loadTables(): Promise<void> {
+    this.loadingTables = true
     try {
       this.tables = await client.listTables()
     } catch {
       this.tables = []
+    } finally {
+      this.loadingTables = false
     }
   }
 }

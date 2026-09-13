@@ -130,6 +130,16 @@
     const extension = sqlLanguage(tables)
     view?.dispatch({ effects: language.reconfigure(extension) })
   })
+
+  // Sincroniza cambios que llegan desde fuera (p. ej. el panel de archivos). La comparación
+  // evita el bucle: lo que escribe el propio editor vuelve igual por onchange y no se reaplica.
+  $effect(() => {
+    const next = value
+    if (view && next !== view.state.doc.toString()) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next }, selection: { anchor: next.length } })
+      view.focus()
+    }
+  })
 </script>
 
 <div class="h-full min-h-0" {@attach mountEditor}></div>
