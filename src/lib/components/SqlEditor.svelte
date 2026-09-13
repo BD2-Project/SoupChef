@@ -1,7 +1,7 @@
 <script lang="ts">
   import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-  import { StandardSQL, sql } from '@codemirror/lang-sql'
+  import { PostgreSQL, SQLDialect, sql } from '@codemirror/lang-sql'
   import { HighlightStyle, bracketMatching, syntaxHighlighting } from '@codemirror/language'
   import { Compartment, EditorState, Prec } from '@codemirror/state'
   import {
@@ -65,12 +65,24 @@
     { tag: [tags.operator, tags.punctuation, tags.bracket], color: 'var(--muted)' },
   ])
 
-  const sqlLanguage = (list: TableInfo[]) =>
-    sql({
-      dialect: StandardSQL,
+  const POSTGRES_KEYWORDS = (PostgreSQL.spec.keywords ?? '').split(' ')
+
+  // Se parte de PostgreSQL porque su lista incluye EXPLAIN y ANALYZE (StandardSQL no expone la suya),
+  // pero se quitan los nombres del esquema: PostgreSQL trata palabras como `id` como clave.
+  const sqlLanguage = (list: TableInfo[]) => {
+    const identifiers = new Set(
+      list.flatMap((table) => [table.name, ...table.columns.map((column) => column.name)]).map((name) => name.toLowerCase()),
+    )
+    const dialect = SQLDialect.define({
+      ...PostgreSQL.spec,
+      keywords: POSTGRES_KEYWORDS.filter((word) => !identifiers.has(word)).join(' '),
+    })
+    return sql({
+      dialect,
       upperCaseKeywords: true,
       schema: Object.fromEntries(list.map((table) => [table.name, table.columns.map((column) => column.name)])),
     })
+  }
 
   // Con texto seleccionado se ejecuta solo la selección, como en los clientes SQL de escritorio.
   export function getStatement(): string {
