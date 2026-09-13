@@ -5,6 +5,9 @@
   import PlanPanel from './lib/panels/PlanPanel.svelte'
   import QueryPanel from './lib/panels/QueryPanel.svelte'
   import ResultsPanel from './lib/panels/ResultsPanel.svelte'
+  import { query } from './lib/query.svelte'
+
+  query.loadTables()
 </script>
 
 <div class="flex h-full flex-col">
@@ -29,5 +32,5 @@
     <div class="grid min-h-0 animate-rise [animation-delay:120ms]"><ResultsPanel /></div>
   </main>
 
-  <StatusBar source="SoupDB · mock" />
+  <StatusBar source="SoupDB · mock" plan={query.result?.plan} />
 </div>
