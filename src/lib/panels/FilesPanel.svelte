@@ -3,5 +3,7 @@
 </script>
 
 <Panel title="Archivos">
-  <p class="p-3 text-sm text-slate-500">No hay tablas cargadas.</p>
+  <p class="max-w-56 px-3 py-3 text-subtle">
+    Las tablas del motor aparecen aquí con sus columnas, su organización de archivo y sus índices.
+  </p>
 </Panel>
