@@ -212,7 +212,14 @@ export class MockClient implements SoupClient {
 
   async execute(sql: string): Promise<QueryResult> {
     await delay(LATENCY_MS)
-    const statement = sql.trim().replace(/;\s*$/, '')
+    const trimmed = sql.trim().replace(/;\s*$/, '')
+    // El plan se pide explícitamente: EXPLAIN ANALYZE ejecuta igual y adjunta los contadores medidos.
+    const explain = /^EXPLAIN\s+ANALYZE\s+/i.exec(trimmed)
+    const result = this.run(explain ? trimmed.slice(explain[0].length) : trimmed)
+    return explain ? result : { ...result, plan: null }
+  }
+
+  private run(statement: string): QueryResult {
     const keyword = statement.split(/\s+/, 1)[0]?.toUpperCase() ?? ''
 
     switch (keyword) {
