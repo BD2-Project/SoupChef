@@ -3,5 +3,11 @@
 </script>
 
 <Panel title="Resultados">
-  <p class="p-3 text-sm text-slate-500">Ejecuta una consulta para ver resultados.</p>
+  <div class="px-3 py-3 text-subtle">
+    <p>Ejecuta una consulta para ver sus filas.</p>
+    <p class="mt-1">
+      Para probar volumen:
+      <code class="font-mono text-accent-text">SELECT * FROM chunks LIMIT 100000</code>
+    </p>
+  </div>
 </Panel>

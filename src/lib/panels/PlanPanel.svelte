@@ -3,5 +3,7 @@
 </script>
 
 <Panel title="Plan de ejecución">
-  <p class="p-3 text-sm text-slate-500">Sin plan todavía.</p>
+  <p class="max-w-72 px-3 py-3 text-subtle">
+    Cada operador muestra filas, tiempo y accesos a disco. El más costoso se resalta.
+  </p>
 </Panel>
