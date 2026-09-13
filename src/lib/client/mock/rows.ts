@@ -24,7 +24,7 @@ function paper(i: number): Value[] {
     id,
     `On ${topic} for multimodal databases (${id})`,
     AUTHORS[(i * 7) % AUTHORS.length],
-    2000 + ((i * 13) % 26),
+    2000 + ((i * 7) % 26),
     VENUES[(i * 5) % VENUES.length],
     `We study ${topic} and measure disk accesses over 100k records.`,
     `data/papers/${id}.pdf`,
