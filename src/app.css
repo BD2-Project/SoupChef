@@ -1,8 +1,142 @@
 @import 'tailwindcss';
 
-html,
-body,
-#app {
-  height: 100%;
-  margin: 0;
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Neutros teñidos hacia el ámbar (hue 70) para que el acento pertenezca a la paleta. */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: oklch(0.155 0.006 70);
+  --sunken: oklch(0.17 0.006 70);
+  --surface: oklch(0.19 0.007 70);
+  --raised: oklch(0.235 0.008 70);
+  --line: oklch(0.275 0.009 70);
+  --line-strong: oklch(0.36 0.01 70);
+  --text: oklch(0.93 0.008 80);
+  --muted: oklch(0.74 0.012 75);
+  --subtle: oklch(0.64 0.012 75);
+  --accent: oklch(0.8 0.145 72);
+  --accent-hover: oklch(0.85 0.13 75);
+  --accent-ink: oklch(0.22 0.04 60);
+  --accent-text: oklch(0.82 0.13 75);
+  --accent-soft: oklch(0.8 0.145 72 / 0.14);
+  --danger: oklch(0.74 0.15 28);
+  --success: oklch(0.78 0.12 150);
+  --heat-1: oklch(0.8 0.145 72);
+  --heat-2: oklch(0.73 0.16 50);
+  --heat-3: oklch(0.68 0.19 30);
+}
+
+/* El claro es de primera clase: es el que se proyecta en la presentación. */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: oklch(0.955 0.006 80);
+  --sunken: oklch(0.945 0.007 80);
+  --surface: oklch(0.985 0.004 80);
+  --raised: oklch(0.935 0.008 80);
+  --line: oklch(0.875 0.009 75);
+  --line-strong: oklch(0.78 0.012 75);
+  --text: oklch(0.22 0.012 70);
+  --muted: oklch(0.42 0.014 70);
+  --subtle: oklch(0.5 0.014 70);
+  --accent: oklch(0.76 0.15 70);
+  --accent-hover: oklch(0.71 0.155 65);
+  --accent-ink: oklch(0.2 0.04 55);
+  --accent-text: oklch(0.5 0.12 55);
+  --accent-soft: oklch(0.76 0.15 70 / 0.18);
+  --danger: oklch(0.52 0.19 28);
+  --success: oklch(0.5 0.12 150);
+  --heat-1: oklch(0.6 0.14 70);
+  --heat-2: oklch(0.56 0.17 45);
+  --heat-3: oklch(0.52 0.2 28);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-sunken: var(--sunken);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+}
+
+@theme {
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --animate-rise: rise 420ms cubic-bezier(0.25, 1, 0.5, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 200ms var(--ease-out-quart),
+      color 200ms var(--ease-out-quart);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
 }
