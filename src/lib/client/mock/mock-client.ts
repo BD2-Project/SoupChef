@@ -202,6 +202,9 @@ function transaction(keyword: 'BEGIN' | 'END'): QueryResult {
 }
 
 export class MockClient implements SoupClient {
+  readonly source = 'SoupDB · mock'
+  readonly connected = true
+
   async listTables(): Promise<TableInfo[]> {
     await delay(LATENCY_MS / 3)
     return structuredClone(TABLES)
