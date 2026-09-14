@@ -13,6 +13,8 @@
   {#snippet meta()}
     {#if query.running}
       <span class="text-accent-text">ejecutando…</span>
+    {:else if !query.result?.plan}
+      <span>antepón <code class="font-mono text-muted">EXPLAIN ANALYZE</code> para ver el plan</span>
     {/if}
   {/snippet}
 
