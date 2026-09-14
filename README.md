@@ -27,6 +27,14 @@ pnpm dev
 
 El mock usa los mismos tipos del contrato y no se incluye en el build cuando la variable no está activa.
 
+## Plan de ejecución
+
+El plan se pide de forma explícita, como en PostgreSQL. Una consulta normal devuelve solo filas; anteponiendo `EXPLAIN ANALYZE` la consulta se ejecuta pero, en lugar de filas, devuelve el plan: en **Resultados** aparece en texto (operador, detalle, filas, tiempo y accesos a disco) y a la derecha como **diagrama**:
+
+```sql
+EXPLAIN ANALYZE SELECT id, autor FROM papers ORDER BY autor DESC LIMIT 3;
+```
+
 ## Stack
 
 Svelte 5 · TypeScript · Tailwind CSS 4 · Vite · Tauri 2 · pnpm
