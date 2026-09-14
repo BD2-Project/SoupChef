@@ -1,24 +1,42 @@
 <script lang="ts">
-  import type { PlanNode } from '../types/contract'
+  import type { PlanNode, QueryResult } from '../types/contract'
 
   interface Props {
     source: string
     connected: boolean
-    plan?: PlanNode | null
+    result?: QueryResult | null
+    elapsedMs?: number | null
   }
 
-  let { source, connected, plan = null }: Props = $props()
+  let { source, connected, result = null, elapsedMs = null }: Props = $props()
 
   const sum = (node: PlanNode, key: 'disk_reads' | 'disk_writes'): number =>
     node[key] + node.children.reduce((total, child) => total + sum(child, key), 0)
 
   const format = (value: number) => value.toLocaleString('es-PE')
 
+  const ok = $derived(result !== null && result.error === null)
+  const plan = $derived(result?.plan ?? null)
+  // Con EXPLAIN ANALYZE no llegan filas: se reportan las que produjo la consulta según el plan.
+  const rows = $derived(
+    plan ? plan.rows : result && result.columns.length > 0 ? result.rows.length : (result?.affected_rows ?? 0),
+  )
+  // Con plan se usa el tiempo del motor; sin plan, el medido en el cliente.
+  const time = $derived(plan ? plan.elapsed_ms : elapsedMs)
+
   const metrics = $derived([
-    { label: 'filas', value: plan ? format(plan.rows) : '—' },
-    { label: 'tiempo', value: plan ? `${format(plan.elapsed_ms)} ms` : '—' },
-    { label: 'lecturas', value: plan ? format(sum(plan, 'disk_reads')) : '—' },
-    { label: 'escrituras', value: plan ? format(sum(plan, 'disk_writes')) : '—' },
+    { label: 'filas', value: ok ? format(rows) : '—', hint: undefined },
+    { label: 'tiempo', value: ok && time !== null ? `${format(time)} ms` : '—', hint: undefined },
+    {
+      label: 'lecturas',
+      value: plan ? format(sum(plan, 'disk_reads')) : '—',
+      hint: plan ? undefined : 'Usa EXPLAIN ANALYZE para medir accesos a disco',
+    },
+    {
+      label: 'escrituras',
+      value: plan ? format(sum(plan, 'disk_writes')) : '—',
+      hint: plan ? undefined : 'Usa EXPLAIN ANALYZE para medir accesos a disco',
+    },
   ])
 </script>
 
@@ -31,7 +49,7 @@
   </div>
   <dl class="flex items-center gap-4 font-mono tabular">
     {#each metrics as metric (metric.label)}
-      <div class="flex gap-1.5">
+      <div class="flex gap-1.5" title={metric.hint}>
         <dt class="text-subtle">{metric.label}</dt>
         <dd class="text-text">{metric.value}</dd>
       </div>

@@ -9,6 +9,9 @@
   import { query } from './lib/query.svelte'
 
   query.loadTables()
+
+  // El plan solo llega con EXPLAIN ANALYZE; sin plan, consulta y resultados ocupan todo el ancho.
+  const plan = $derived(query.result?.plan ?? null)
 </script>
 
 <div class="flex h-full flex-col">
@@ -25,13 +28,24 @@
 
   <!-- gap-px sobre bg-line dibuja divisores de 1px entre paneles, como en un IDE -->
   <main
-    class="grid min-h-0 flex-1 grid-cols-[15rem_minmax(0,1fr)_22rem] grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-px bg-line"
+    class="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-px bg-line {plan
+      ? 'grid-cols-[15rem_minmax(0,1fr)_26rem]'
+      : 'grid-cols-[15rem_minmax(0,1fr)]'}"
   >
-    <div class="row-span-2 grid min-h-0 animate-rise"><FilesPanel /></div>
-    <div class="grid min-h-0 animate-rise [animation-delay:60ms]"><QueryPanel /></div>
-    <div class="row-span-2 grid min-h-0 animate-rise [animation-delay:180ms]"><PlanPanel /></div>
-    <div class="grid min-h-0 animate-rise [animation-delay:120ms]"><ResultsPanel /></div>
+    <div class="col-start-1 row-span-2 row-start-1 grid min-h-0 animate-rise"><FilesPanel /></div>
+    <div class="col-start-2 row-start-1 grid min-h-0 animate-rise [animation-delay:60ms]"><QueryPanel /></div>
+    <div class="col-start-2 row-start-2 grid min-h-0 animate-rise [animation-delay:120ms]"><ResultsPanel /></div>
+    {#if plan}
+      <div class="col-start-3 row-span-2 row-start-1 grid min-h-0 animate-rise [animation-duration:280ms]">
+        <PlanPanel {plan} />
+      </div>
+    {/if}
   </main>
 
-  <StatusBar source={client.source} connected={client.connected} plan={query.result?.plan} />
+  <StatusBar
+    source={client.source}
+    connected={client.connected}
+    result={query.result}
+    elapsedMs={query.elapsedMs}
+  />
 </div>
