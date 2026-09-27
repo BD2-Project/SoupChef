@@ -17,7 +17,25 @@ Implementa la interfaz de usuario del enunciado (2.1.5) con cuatro paneles:
 SoupChef (Svelte + Tauri)  ──invoke──▶  rsoup (driver Rust, TCP)  ──▶  SoupDB (motor Python)
 ```
 
-Mientras `rsoup` no esté integrado, la app arranca **sin conexión**: los paneles funcionan pero no hay datos. Para desarrollar con datos de ejemplo (tablas `papers` y `chunks` generadas en memoria), activa el mock:
+La app de escritorio habla con el motor a través del driver `rsoup`. En el navegador no hay sockets TCP, así que ahí queda el mock o el estado sin conexión.
+
+### Contra el motor real (app de escritorio)
+
+```bash
+# 1. Levanta el gestor (en el repo SoupDB)
+SOUP_DB_PATH=./data uv run python scripts/run_server.py   # escucha en 127.0.0.1:55432
+
+# 2. Levanta la app (en este repo)
+pnpm tauri dev
+```
+
+El panel de Archivos se llena leyendo el catálogo del motor (`SysTables`, `SysColumns`, `SysIndexes`) y el editor ejecuta SQL real, incluidas transacciones. Requiere Rust instalado.
+
+El host y el puerto por defecto son `127.0.0.1:55432`; se pueden cambiar invocando el comando `connect`.
+
+### Con datos de ejemplo (navegador)
+
+Para desarrollar sin motor, con las tablas `papers` y `chunks` generadas en memoria, activa el mock:
 
 ```bash
 cp .env.example .env.local
