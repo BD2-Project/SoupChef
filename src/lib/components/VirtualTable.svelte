@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatPoint, isGeoPoint } from '../spatial'
   import type { Value } from '../types/contract'
 
   interface Props {
@@ -18,7 +19,10 @@
   let viewportHeight = $state(0)
 
   function display(value: Value): string {
-    return value === null ? 'NULL' : String(value)
+    if (value === null) return 'NULL'
+    // Una columna POINT es un objeto: se muestra como "latitud, longitud".
+    if (isGeoPoint(value)) return formatPoint(value)
+    return String(value)
   }
 
   // El ancho se estima con una muestra: medir 100 000 filas bloquearía la interfaz.
@@ -81,7 +85,7 @@
               <span
                 role="cell"
                 title={text.length > widths[column] ? text : undefined}
-                class="truncate px-2 leading-7 {typeof value === 'number' ? 'text-right tabular' : ''} {value === null
+                class="truncate px-2 leading-7 {typeof value === 'number' || isGeoPoint(value) ? 'text-right tabular' : ''} {value === null
                   ? 'text-subtle italic'
                   : 'text-text'}"
               >
