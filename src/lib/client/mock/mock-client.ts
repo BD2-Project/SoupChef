@@ -1,5 +1,6 @@
 import type { SoupClient } from '../client'
-import type { PlanNode, QueryResult, TableInfo, Value } from '../../types/contract'
+import type { GeoPoint, PlanNode, QueryResult, TableInfo, Value } from '../../types/contract'
+import { euclideanDegrees, haversineMeters, isGeoPoint } from '../../spatial'
 import { generateRow } from './rows'
 import { TABLES } from './tables'
 
@@ -7,6 +8,7 @@ import { TABLES } from './tables'
 const LATENCY_MS = 150
 const RECORDS_PER_PAGE = 40
 const BPLUS_HEIGHT = 3
+const RTREE_HEIGHT = 3
 const SORT_BUFFER_PAGES = 16
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -55,6 +57,9 @@ function select(statement: string): QueryResult {
 
   const groupBy = /GROUP\s+BY\s+(\w+)/i.exec(rest)?.[1]
   if (groupBy) return aggregate(table, groupBy)
+
+  const spatial = spatialQuery(table, names, selectList, rest)
+  if (spatial) return spatial
 
   const projection = selectList.trim() === '*' ? names : selectList.split(',').map((s) => s.trim())
   const missing = projection.find((name) => !names.includes(name))
@@ -108,6 +113,111 @@ function select(statement: string): QueryResult {
   const positions = projection.map((name) => names.indexOf(name))
   const projected = rows.map((row) => positions.map((position) => row[position]))
   plan = node('Project', { columns: projection.join(', ') }, projected.length, 0, [plan])
+  return ok(projection, projected, plan)
+}
+
+/**
+ * `distancia(columna, POINT(lat, lon))` tal como lo escribe el enunciado (2.2.3).
+ * Ojo al orden: en el SQL el literal es (latitud, longitud) y el GeoPoint guarda
+ * x = longitud, y = latitud, igual que el Point(x, y) del R-Tree.
+ */
+const DISTANCE_CALL = /distancia\s*\(\s*(\w+)\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*\)/i
+
+interface SpatialTarget {
+  column: string
+  center: GeoPoint
+  metric: 'haversine' | 'euclidiana'
+}
+
+function parseDistanceCall(sql: string): SpatialTarget | null {
+  const match = DISTANCE_CALL.exec(sql)
+  if (!match) return null
+  const [, column, latitude, longitude] = match
+  return {
+    column,
+    center: { x: Number(longitude), y: Number(latitude) },
+    metric: /USING\s+EUCLIDIANA/i.test(sql) ? 'euclidiana' : 'haversine',
+  }
+}
+
+function distanceTo(center: GeoPoint, metric: SpatialTarget['metric']) {
+  return (point: GeoPoint) =>
+    metric === 'haversine' ? haversineMeters(center, point) : euclideanDegrees(center, point)
+}
+
+/** Consultas por radio y k-NN sobre una columna POINT; devuelve null si no aplica. */
+function spatialQuery(
+  table: TableInfo,
+  names: string[],
+  selectList: string,
+  rest: string,
+): QueryResult | null {
+  const target = parseDistanceCall(`${selectList} ${rest}`)
+  if (!target) return null
+
+  const position = names.indexOf(target.column)
+  if (position < 0) {
+    return fail('ColumnNotFound', `La columna "${target.column}" no existe en ${table.name}`)
+  }
+  if (table.columns[position].type !== 'POINT') {
+    return fail('TypeError', `La columna "${target.column}" no es espacial`)
+  }
+
+  const rows = Array.from({ length: table.row_count }, (_, i) => generateRow(table.name, i))
+  const distance = distanceTo(target.center, target.metric)
+  const measured = rows
+    .map((row) => {
+      const point = row[position]
+      return { row, distance: isGeoPoint(point) ? distance(point) : Number.POSITIVE_INFINITY }
+    })
+    .sort((a, b) => a.distance - b.distance)
+
+  const radius = /distancia\s*\([^)]*\)\s*\)?\s*<\s*(-?[\d.]+)/i.exec(rest)?.[1]
+  const limit = /LIMIT\s+(\d+)/i.exec(rest)?.[1]
+  const projection =
+    selectList.trim() === '*' ? names : selectList.split(',').map((name) => name.trim())
+  const unknown = projection.find((name) => !names.includes(name))
+  if (unknown) return fail('ColumnNotFound', `La columna "${unknown}" no existe en ${table.name}`)
+  const positions = projection.map((name) => names.indexOf(name))
+
+  let selected: typeof measured
+  let leaf: PlanNode
+
+  if (radius !== undefined) {
+    const meters = Number(radius)
+    selected = measured.filter((entry) => entry.distance <= meters)
+    // El R-Tree poda por MBR: se visitan pocas páginas frente al scan completo.
+    leaf = node(
+      'RTreeRangeSearch',
+      {
+        index: 'lugares_geo',
+        table: table.name,
+        center: `${target.center.y}, ${target.center.x}`,
+        radius_m: meters,
+        metric: target.metric,
+      },
+      selected.length,
+      RTREE_HEIGHT + pages(selected.length),
+    )
+  } else {
+    const k = Number(limit ?? 10)
+    selected = measured.slice(0, k)
+    leaf = node(
+      'RTreeKNN',
+      {
+        index: 'lugares_geo',
+        table: table.name,
+        k,
+        center: `${target.center.y}, ${target.center.x}`,
+        metric: target.metric,
+      },
+      selected.length,
+      RTREE_HEIGHT + Math.ceil(k / 4),
+    )
+  }
+
+  const projected = selected.map(({ row }) => positions.map((index) => row[index]))
+  const plan = node('Project', { columns: projection.join(', ') }, projected.length, 0, [leaf])
   return ok(projection, projected, plan)
 }
 

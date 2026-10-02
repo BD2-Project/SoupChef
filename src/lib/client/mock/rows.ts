@@ -1,4 +1,5 @@
 import type { Value } from '../../types/contract'
+import { lugar } from './lugares'
 
 export const PAPER_COUNT = 1000
 export const CHUNKS_PER_PAPER = 8
@@ -38,7 +39,7 @@ function chunk(i: number): Value[] {
   return [i + 1, paperId, pos, `Chunk ${pos + 1} of paper ${paperId}: notes on ${topic}.`]
 }
 
-const GENERATORS: Record<string, (i: number) => Value[]> = { papers: paper, chunks: chunk }
+const GENERATORS: Record<string, (i: number) => Value[]> = { papers: paper, chunks: chunk, lugares: lugar }
 
 export function generateRow(table: string, i: number): Value[] {
   return GENERATORS[table](i)
