@@ -2,6 +2,7 @@
   import L from 'leaflet'
   import 'leaflet/dist/leaflet.css'
 
+  import { highlight } from '../highlight.svelte'
   import { formatMeters, formatPoint, haversineMeters } from '../spatial'
   import { theme } from '../theme.svelte'
   import type { GeoPoint } from '../types/contract'
@@ -10,6 +11,8 @@
     point: GeoPoint
     label: string
     detail: string
+    /** Índice en `result.rows`: con él se resalta la fila correspondiente. */
+    rowIndex: number
   }
 
   interface Props {
@@ -30,6 +33,8 @@
   let map: L.Map | undefined
   let tiles: L.TileLayer | undefined
   let overlay: L.LayerGroup | undefined
+  // Se guardan por fila para poder resaltar sin volver a dibujar todo el mapa.
+  let circles = new Map<number, L.CircleMarker>()
 
   function style(name: '--accent' | '--heat-3' | '--muted' | '--surface'): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -56,6 +61,7 @@
   function draw() {
     if (!map || !overlay) return
     overlay.clearLayers()
+    circles = new Map()
 
     const accent = style('--accent')
     const hot = style('--heat-3')
@@ -80,6 +86,9 @@
           className: 'soup-rank',
         })
       }
+      circle.on('mouseover', () => highlight.set(marker.rowIndex, 'map'))
+      circle.on('mouseout', () => highlight.clear())
+      circles.set(marker.rowIndex, circle)
       circle.addTo(overlay)
     }
 
@@ -142,6 +151,19 @@
     void radius
     void ranked
     draw()
+  })
+
+  $effect(() => {
+    const active = highlight.row
+    const accent = style('--accent')
+    const hot = style('--heat-3')
+    const surface = style('--surface')
+    for (const [rowIndex, circle] of circles) {
+      const on = rowIndex === active
+      circle.setStyle({ fillColor: on ? hot : accent, color: on ? hot : surface, weight: on ? 3 : 1.5 })
+      circle.setRadius(on ? (ranked ? 12 : 9) : ranked ? 9 : 6)
+      if (on) circle.bringToFront()
+    }
   })
 
   const darkTiles = $derived(theme.current === 'dark')

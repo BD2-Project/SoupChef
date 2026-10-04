@@ -16,7 +16,7 @@
 
   const markers = $derived.by<MapMarker[]>(() => {
     if (pointIndex < 0) return []
-    return result.rows.flatMap((row) => {
+    return result.rows.flatMap((row, rowIndex) => {
       const point = row[pointIndex]
       if (!isGeoPoint(point)) return []
       const label = String(row.find((value, index) => index !== pointIndex && typeof value === 'string') ?? '—')
@@ -24,7 +24,7 @@
         .map((column, index) => (index === pointIndex ? null : `${column}: ${row[index]}`))
         .filter((text): text is string => text !== null)
         .join(' · ')
-      return [{ point, label, detail }]
+      return [{ point, label, detail, rowIndex }]
     })
   })
 
