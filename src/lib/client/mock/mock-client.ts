@@ -185,7 +185,9 @@ function spatialQuery(
 
   if (radius !== undefined) {
     const meters = Number(radius)
-    selected = measured.filter((entry) => entry.distance <= meters)
+    // Estricto, no inclusivo: `radius_search` del motor usa `<=`, pero el `<` del SQL
+    // excluye el punto que cae justo sobre el radio. Ver docs/integracion_sql_espacial.md.
+    selected = measured.filter((entry) => entry.distance < meters)
     // El R-Tree poda por MBR: se visitan pocas páginas frente al scan completo.
     leaf = node(
       'RTreeRangeSearch',
