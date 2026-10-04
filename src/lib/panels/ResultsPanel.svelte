@@ -2,9 +2,16 @@
   import Panel from '../components/Panel.svelte'
   import PlanText from '../components/PlanText.svelte'
   import VirtualTable from '../components/VirtualTable.svelte'
+  import { highlight } from '../highlight.svelte'
   import { query } from '../query.svelte'
 
   const result = $derived(query.result)
+
+  $effect(() => {
+    // Los índices resaltados pertenecen al resultado anterior.
+    void result
+    highlight.clear()
+  })
 
   const format = (value: number) => value.toLocaleString('es-PE')
   const plural = (count: number, singular: string, many: string) => (count === 1 ? singular : many)
@@ -49,7 +56,13 @@
         {:else if result.rows.length === 0}
           <p class="px-3 py-3 text-subtle">La consulta no devolvió filas.</p>
         {:else}
-          <VirtualTable columns={result.columns} rows={result.rows} />
+          <VirtualTable
+            columns={result.columns}
+            rows={result.rows}
+            highlighted={highlight.row}
+            follow={highlight.source === 'map'}
+            onhover={(row) => (row === null ? highlight.clear() : highlight.set(row, 'table'))}
+          />
         {/if}
       </div>
     {/key}

@@ -1,12 +1,18 @@
 <script lang="ts">
+  import { formatPoint, isGeoPoint } from '../spatial'
   import type { Value } from '../types/contract'
 
   interface Props {
     columns: string[]
     rows: Value[][]
+    /** Índice de la fila a resaltar, para sincronizar con el mapa. */
+    highlighted?: number | null
+    onhover?: (row: number | null) => void
+    /** Desplaza hasta la fila resaltada: solo cuando el resalte vino de afuera. */
+    follow?: boolean
   }
 
-  let { columns, rows }: Props = $props()
+  let { columns, rows, highlighted = null, onhover, follow = false }: Props = $props()
 
   const ROW_HEIGHT = 28
   const OVERSCAN = 8
@@ -18,7 +24,10 @@
   let viewportHeight = $state(0)
 
   function display(value: Value): string {
-    return value === null ? 'NULL' : String(value)
+    if (value === null) return 'NULL'
+    // Una columna POINT es un objeto: se muestra como "latitud, longitud".
+    if (isGeoPoint(value)) return formatPoint(value)
+    return String(value)
   }
 
   // El ancho se estima con una muestra: medir 100 000 filas bloquearía la interfaz.
@@ -41,6 +50,27 @@
   const start = $derived(Math.max(0, Math.floor((scrollTop - ROW_HEIGHT) / ROW_HEIGHT) - OVERSCAN))
   const end = $derived(Math.min(rows.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN))
   const visible = $derived(rows.slice(start, end))
+
+  let viewport: HTMLDivElement | undefined = $state()
+
+  // Un solo listener en el contenedor: colgar uno por fila convertiría cada `role="row"`
+  // en un elemento interactivo que además tendría que ser enfocable.
+  function trackHover(event: MouseEvent | FocusEvent): void {
+    if (!onhover) return
+    const row = (event.target as Element | null)?.closest('[role="row"]')
+    const index = row?.getAttribute('aria-rowindex')
+    // La cabecera es la fila 1 y no corresponde a ningún dato.
+    if (index) onhover(Number(index) - 2)
+  }
+
+  $effect(() => {
+    if (!follow || highlighted === null || !viewport) return
+    // +1 por la cabecera fija, que ocupa una fila del scroll.
+    const top = (highlighted + 1) * ROW_HEIGHT
+    if (top < scrollTop || top + ROW_HEIGHT > scrollTop + viewportHeight) {
+      viewport.scrollTo({ top: top - viewportHeight / 2, behavior: 'smooth' })
+    }
+  })
 </script>
 
 <div
@@ -48,8 +78,12 @@
   aria-rowcount={rows.length + 1}
   aria-colcount={columns.length + 1}
   class="h-full overflow-auto"
+  bind:this={viewport}
   bind:clientHeight={viewportHeight}
   onscroll={(event) => (scrollTop = event.currentTarget.scrollTop)}
+  onmouseleave={() => onhover?.(null)}
+  onmouseover={trackHover}
+  onfocusin={trackHover}
 >
   <div class="w-max min-w-full font-mono text-micro">
     <div
@@ -71,7 +105,10 @@
           <div
             role="row"
             aria-rowindex={start + offset + 2}
-            class="grid border-b border-line/50 transition-colors duration-100 hover:bg-raised"
+            class="grid border-b border-line/50 transition-colors duration-100 hover:bg-raised {start + offset ===
+            highlighted
+              ? 'bg-accent-soft'
+              : ''}"
             style:grid-template-columns={template}
             style:height="{ROW_HEIGHT}px"
           >
@@ -81,7 +118,7 @@
               <span
                 role="cell"
                 title={text.length > widths[column] ? text : undefined}
-                class="truncate px-2 leading-7 {typeof value === 'number' ? 'text-right tabular' : ''} {value === null
+                class="truncate px-2 leading-7 {typeof value === 'number' || isGeoPoint(value) ? 'text-right tabular' : ''} {value === null
                   ? 'text-subtle italic'
                   : 'text-text'}"
               >

@@ -9,10 +9,13 @@ class QueryState {
   tables = $state.raw<TableInfo[]>([])
   // Medido en el cliente: sin EXPLAIN ANALYZE no hay plan del que sacar el tiempo del motor.
   elapsedMs = $state<number | null>(null)
+  /** Lo último que se ejecutó: puede ser una selección, no todo el editor. */
+  lastStatement = $state('')
 
   async run(statement: string = this.sql): Promise<void> {
     if (this.running || !statement.trim()) return
     this.running = true
+    this.lastStatement = statement
     const started = performance.now()
     try {
       this.result = await client.execute(statement)

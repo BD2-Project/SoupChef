@@ -11,7 +11,19 @@ export interface PlanNode {
 }
 
 // Lo que sigue es la propuesta de #3; se ajusta cuando query y rsoup la acuerden.
-export type ColumnType = 'INT' | 'FLOAT' | 'VARCHAR' | 'TEXT' | 'BOOL'
+export type ColumnType = 'INT' | 'FLOAT' | 'VARCHAR' | 'TEXT' | 'BOOL' | 'POINT'
+
+/**
+ * Coordenada geográfica de una columna POINT (Parte 2).
+ *
+ * `x` es la longitud y `y` la latitud, igual que el `Point(x, y)` del R-Tree del
+ * motor. En el SQL del enunciado el literal se escribe al revés —
+ * `POINT(latitud, longitud)` — y la conversión ocurre al parsear.
+ */
+export interface GeoPoint {
+  x: number
+  y: number
+}
 
 export interface ColumnInfo {
   name: string
@@ -34,7 +46,7 @@ export interface TableInfo {
   row_count: number
 }
 
-export type Value = string | number | boolean | null
+export type Value = string | number | boolean | null | GeoPoint
 
 export interface QueryError {
   kind: string
