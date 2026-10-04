@@ -125,6 +125,13 @@ function distinct<T>(values: T[]): T[] {
   return [...new Set(values)]
 }
 
+/** Recalcula los ejes de una suite a partir de sus mediciones. */
+function refresh(suite: Suite): void {
+  suite.techniques = distinct(suite.measurements.map((m) => m.technique))
+  suite.operations = distinct(suite.measurements.map((m) => m.operation))
+  suite.datasetSizes = distinct(suite.measurements.map((m) => m.datasetSize)).sort((a, b) => a - b)
+}
+
 function load(): { suites: Suite[]; problems: SuiteProblem[] } {
   const suites: Suite[] = []
   const problems: SuiteProblem[] = []
@@ -139,15 +146,30 @@ function load(): { suites: Suite[]; problems: SuiteProblem[] } {
         problems.push({ file, reason: 'no tiene filas de datos' })
         continue
       }
-      suites.push({
+      // Una suite puede venir repartida en varios CSV: la comparación 2.2.4 mide el
+      // R-Tree y PostgreSQL en corridas distintas y hay que poder leerlas juntas.
+      const existing = suites.find((suite) => suite.id === id)
+      if (existing) {
+        existing.measurements.push(...measurements)
+        existing.date = [existing.date, match ? parseDate(match[2]) : null]
+          .filter((value): value is string => value !== null)
+          .sort()
+          .at(-1) ?? null
+        refresh(existing)
+        continue
+      }
+
+      const suite: Suite = {
         id,
         label: SUITE_LABELS[id] ?? id.replace(/_/g, ' '),
         date: match ? parseDate(match[2]) : null,
-        techniques: distinct(measurements.map((m) => m.technique)),
-        operations: distinct(measurements.map((m) => m.operation)),
-        datasetSizes: distinct(measurements.map((m) => m.datasetSize)).sort((a, b) => a - b),
+        techniques: [],
+        operations: [],
+        datasetSizes: [],
         measurements,
-      })
+      }
+      refresh(suite)
+      suites.push(suite)
     } catch (error) {
       problems.push({
         file,
