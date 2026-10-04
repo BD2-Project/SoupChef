@@ -43,6 +43,7 @@ export interface SuiteProblem {
 const SUITE_LABELS: Record<string, string> = {
   physical_indexes: 'Índices físicos',
   spatial_indexes: 'Índices espaciales',
+  postgres_gist: 'PostgreSQL GiST',
   indexes: 'Índices',
   storage: 'Organización de archivos',
 }
@@ -69,8 +70,28 @@ const OPERATION_LABELS: Record<string, string> = {
   knn: 'k vecinos más cercanos',
 }
 
+// Las operaciones espaciales llevan el parámetro en el nombre (`radius_5000m`,
+// `knn_50`): se arma la etiqueta en vez de enumerar una por cada valor medido.
+const RADIUS_OPERATION = /^radius_(\d+)m$/
+const KNN_OPERATION = /^knn_(\d+)$/
+
 export const techniqueLabel = (id: string): string => TECHNIQUE_LABELS[id] ?? id
-export const operationLabel = (id: string): string => OPERATION_LABELS[id] ?? id
+
+export function operationLabel(id: string): string {
+  const fixed = OPERATION_LABELS[id]
+  if (fixed) return fixed
+
+  const radius = RADIUS_OPERATION.exec(id)
+  if (radius) {
+    const meters = Number(radius[1])
+    return `Radio de ${meters >= 1000 ? `${meters / 1000} km` : `${meters} m`}`
+  }
+
+  const knn = KNN_OPERATION.exec(id)
+  if (knn) return `k-NN, k = ${knn[1]}`
+
+  return id
+}
 
 function parseDate(stamp: string): string {
   return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`
@@ -104,6 +125,13 @@ function distinct<T>(values: T[]): T[] {
   return [...new Set(values)]
 }
 
+/** Recalcula los ejes de una suite a partir de sus mediciones. */
+function refresh(suite: Suite): void {
+  suite.techniques = distinct(suite.measurements.map((m) => m.technique))
+  suite.operations = distinct(suite.measurements.map((m) => m.operation))
+  suite.datasetSizes = distinct(suite.measurements.map((m) => m.datasetSize)).sort((a, b) => a - b)
+}
+
 function load(): { suites: Suite[]; problems: SuiteProblem[] } {
   const suites: Suite[] = []
   const problems: SuiteProblem[] = []
@@ -118,15 +146,30 @@ function load(): { suites: Suite[]; problems: SuiteProblem[] } {
         problems.push({ file, reason: 'no tiene filas de datos' })
         continue
       }
-      suites.push({
+      // Una suite puede venir repartida en varios CSV: la comparación 2.2.4 mide el
+      // R-Tree y PostgreSQL en corridas distintas y hay que poder leerlas juntas.
+      const existing = suites.find((suite) => suite.id === id)
+      if (existing) {
+        existing.measurements.push(...measurements)
+        existing.date = [existing.date, match ? parseDate(match[2]) : null]
+          .filter((value): value is string => value !== null)
+          .sort()
+          .at(-1) ?? null
+        refresh(existing)
+        continue
+      }
+
+      const suite: Suite = {
         id,
         label: SUITE_LABELS[id] ?? id.replace(/_/g, ' '),
         date: match ? parseDate(match[2]) : null,
-        techniques: distinct(measurements.map((m) => m.technique)),
-        operations: distinct(measurements.map((m) => m.operation)),
-        datasetSizes: distinct(measurements.map((m) => m.datasetSize)).sort((a, b) => a - b),
+        techniques: [],
+        operations: [],
+        datasetSizes: [],
         measurements,
-      })
+      }
+      refresh(suite)
+      suites.push(suite)
     } catch (error) {
       problems.push({
         file,
