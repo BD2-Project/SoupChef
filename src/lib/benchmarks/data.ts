@@ -43,6 +43,7 @@ export interface SuiteProblem {
 const SUITE_LABELS: Record<string, string> = {
   physical_indexes: 'Índices físicos',
   spatial_indexes: 'Índices espaciales',
+  postgres_gist: 'PostgreSQL GiST',
   indexes: 'Índices',
   storage: 'Organización de archivos',
 }
@@ -69,8 +70,28 @@ const OPERATION_LABELS: Record<string, string> = {
   knn: 'k vecinos más cercanos',
 }
 
+// Las operaciones espaciales llevan el parámetro en el nombre (`radius_5000m`,
+// `knn_50`): se arma la etiqueta en vez de enumerar una por cada valor medido.
+const RADIUS_OPERATION = /^radius_(\d+)m$/
+const KNN_OPERATION = /^knn_(\d+)$/
+
 export const techniqueLabel = (id: string): string => TECHNIQUE_LABELS[id] ?? id
-export const operationLabel = (id: string): string => OPERATION_LABELS[id] ?? id
+
+export function operationLabel(id: string): string {
+  const fixed = OPERATION_LABELS[id]
+  if (fixed) return fixed
+
+  const radius = RADIUS_OPERATION.exec(id)
+  if (radius) {
+    const meters = Number(radius[1])
+    return `Radio de ${meters >= 1000 ? `${meters / 1000} km` : `${meters} m`}`
+  }
+
+  const knn = KNN_OPERATION.exec(id)
+  if (knn) return `k-NN, k = ${knn[1]}`
+
+  return id
+}
 
 function parseDate(stamp: string): string {
   return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`
