@@ -3,7 +3,7 @@
   import 'leaflet/dist/leaflet.css'
 
   import { highlight } from '../highlight.svelte'
-  import { formatMeters, formatPoint, haversineMeters } from '../spatial'
+  import { formatMeters, formatPoint, haversineMeters, type Polygon } from '../spatial'
   import { theme } from '../theme.svelte'
   import type { GeoPoint } from '../types/contract'
 
@@ -21,9 +21,11 @@
     radius?: number | null
     /** k-NN numera los vecinos por cercanía; el radio dibuja el círculo. */
     ranked?: boolean
+    /** Región de `intersects(...)`: se dibuja para ver qué quedó dentro. */
+    polygon?: Polygon | null
   }
 
-  let { markers, center = null, radius = null, ranked = false }: Props = $props()
+  let { markers, center = null, radius = null, ranked = false, polygon = null }: Props = $props()
 
   // Tiles de OpenStreetMap: libres y sin API key. Para el tema oscuro se invierten
   // por CSS en vez de usar un proveedor aparte que exija registrarse.
@@ -62,6 +64,20 @@
     if (!map || !overlay) return
     overlay.clearLayers()
     circles = new Map()
+
+    // El polígono se dibuja primero para que quede por debajo de los marcadores.
+    if (polygon && polygon.length >= 3) {
+      L.polygon(
+        polygon.map((vertex) => [vertex.y, vertex.x] as L.LatLngExpression),
+        {
+          color: style('--heat-3'),
+          weight: 1.5,
+          dashArray: '6 4',
+          fillColor: style('--heat-3'),
+          fillOpacity: 0.08,
+        },
+      ).addTo(overlay)
+    }
 
     const accent = style('--accent')
     const hot = style('--heat-3')
@@ -135,6 +151,8 @@
     if (!map) return
     const positions: L.LatLngExpression[] = markers.map((marker) => [marker.point.y, marker.point.x])
     if (center) positions.push([center.y, center.x])
+    // El encuadre incluye la región aunque no haya ningún punto dentro.
+    if (polygon) positions.push(...polygon.map((vertex) => [vertex.y, vertex.x] as L.LatLngExpression))
     if (positions.length === 0) return
 
     const bounds = L.latLngBounds(positions)
@@ -150,6 +168,7 @@
     void center
     void radius
     void ranked
+    void polygon
     draw()
   })
 
@@ -158,6 +177,7 @@
     const accent = style('--accent')
     const hot = style('--heat-3')
     const surface = style('--surface')
+
     for (const [rowIndex, circle] of circles) {
       const on = rowIndex === active
       circle.setStyle({ fillColor: on ? hot : accent, color: on ? hot : surface, weight: on ? 3 : 1.5 })

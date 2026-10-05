@@ -7,6 +7,7 @@
     formatMeters,
     isGeoPoint,
     METERS_PER_DEGREE,
+    parsePolygon,
     parseSpatialQuery,
     pointColumnIndex,
   } from '../spatial'
@@ -19,6 +20,7 @@
   let { result }: Props = $props()
 
   const spatial = $derived(parseSpatialQuery(query.lastStatement))
+  const polygon = $derived(parsePolygon(query.lastStatement))
   const pointIndex = $derived(pointColumnIndex(result))
 
   const markers = $derived.by<MapMarker[]>(() => {
@@ -61,6 +63,7 @@
           ? spatial.radius * METERS_PER_DEGREE
           : spatial.radius}
       ranked={spatial?.k !== undefined}
+      {polygon}
     />
   {/if}
 </Panel>
