@@ -1,6 +1,14 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import type { ColumnInfo, ColumnType, IndexInfo, QueryResult, TableInfo, Value } from '../types/contract'
+import type {
+  ColumnInfo,
+  ColumnType,
+  IndexInfo,
+  PlanNode,
+  QueryResult,
+  TableInfo,
+  Value,
+} from '../types/contract'
 import type { SoupClient } from './client'
 
 /** Forma que devuelven los comandos de Tauri (ver src-tauri/src/driver.rs). */
@@ -46,20 +54,60 @@ function columnType(name: string): ColumnType {
   return COLUMN_TYPES.includes(upper) ? upper : 'TEXT'
 }
 
+/** `EXPLAIN` sin opciones; el grupo 1 es lo que va entre EXPLAIN y la sentencia. */
+const EXPLAIN_PREFIX = /^(\s*EXPLAIN\s+(?:ANALYZE\s+)?)(?!\()/i
+
+/**
+ * Pide el plan en JSON cuando la consulta es un `EXPLAIN` sin formato explícito.
+ *
+ * El panel de plan necesita el árbol estructurado. Si el usuario ya escribió
+ * `(FORMAT ...)` se respeta lo que pidió.
+ */
+function withJsonPlan(sql: string): string {
+  return sql.replace(EXPLAIN_PREFIX, '$1(FORMAT JSON) ')
+}
+
+/**
+ * Lee el árbol del plan de un resultado de `EXPLAIN (FORMAT JSON)`.
+ *
+ * Devuelve `null` para cualquier otra consulta. Un JSON mal formado tampoco es
+ * motivo para fallar: se degrada a mostrar las filas tal cual.
+ */
+function extractPlan(result: WireResult): PlanNode | null {
+  if (result.columns.length !== 1 || result.columns[0].name !== 'QUERY PLAN') return null
+  if (result.rows.length !== 1) return null
+
+  const raw = result.rows[0][0]
+  if (typeof raw !== 'string') return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return isPlanNode(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function isPlanNode(value: unknown): value is PlanNode {
+  if (typeof value !== 'object' || value === null) return false
+  const node = value as Record<string, unknown>
+  return typeof node.op === 'string' && Array.isArray(node.children)
+}
+
 export class TauriClient implements SoupClient {
   readonly source = 'SoupDB · rsoup'
   readonly connected = true
 
   async execute(sql: string): Promise<QueryResult> {
     try {
-      const result = await invoke<WireResult>('query_sql', { sql })
+      // El motor solo devuelve el árbol estructurado si se lo piden: un EXPLAIN
+      // a secas trae el dibujo de texto, que el panel no puede reconstruir.
+      const result = await invoke<WireResult>('query_sql', { sql: withJsonPlan(sql) })
+      const plan = extractPlan(result)
       return {
-        columns: result.columns.map((column) => column.name),
-        rows: result.rows,
+        columns: plan ? [] : result.columns.map((column) => column.name),
+        rows: plan ? [] : result.rows,
         affected_rows: result.affected,
-        // El protocolo v1 no transporta el plan todavía: el parser aún no soporta
-        // EXPLAIN ANALYZE (SoupDB #58/#59), así que el panel del plan no aparece.
-        plan: null,
+        plan,
         error: null,
       }
     } catch (error) {
