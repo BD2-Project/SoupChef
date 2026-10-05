@@ -73,6 +73,9 @@ fn to_json(value: &Value) -> serde_json::Value {
         Value::Float(number) => serde_json::Value::from(*number),
         Value::Text(text) => serde_json::Value::from(text.clone()),
         Value::Bool(flag) => serde_json::Value::from(*flag),
+        // El frontend espera { x, y }: x es longitud e y latitud, igual que el
+        // GeoPoint del contrato y que el Point(x, y) del motor.
+        Value::Point(x, y) => serde_json::json!({ "x": x, "y": y }),
     }
 }
 
@@ -219,6 +222,23 @@ pub async fn in_transaction(driver: State<'_, Driver>) -> Result<bool, WireError
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn point_becomes_the_geopoint_the_frontend_expects() {
+        // El contrato del frontend es { x, y }: x longitud, y latitud, igual que
+        // el Point(x, y) del motor. Sin esta conversión el panel de mapa recibe
+        // un valor que no sabe dibujar.
+        let json = to_json(&Value::Point(-77.0298, -12.1211));
+        assert_eq!(json["x"], serde_json::json!(-77.0298));
+        assert_eq!(json["y"], serde_json::json!(-12.1211));
+    }
+
+    #[test]
+    fn point_keeps_full_precision() {
+        let json = to_json(&Value::Point(-77.042793, -12.046374));
+        assert_eq!(json["x"].as_f64().unwrap(), -77.042793);
+        assert_eq!(json["y"].as_f64().unwrap(), -12.046374);
+    }
     use super::*;
     use rsoup::{Column, ResultSet};
 
