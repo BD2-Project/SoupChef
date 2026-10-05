@@ -2655,7 +2655,7 @@ dependencies = [
 [[package]]
 name = "rsoup"
 version = "0.1.0"
-source = "git+https://github.com/BD2-Project/rsoup.git?branch=main#c81a04017e8e54ae8dfcf6f11d184d222513322a"
+source = "git+https://github.com/BD2-Project/rsoup.git?branch=main#609a3f63f6f0a28b048b61d284c70e33ce7a10ce"
 dependencies = [
  "anyhow",
  "crossterm",
