@@ -63,7 +63,7 @@
   {#if tables.length === 0}
     <p class="max-w-56 px-3 py-3 text-subtle">
       {#if !client.connected}
-        Sin conexión con el motor. Las tablas aparecen aquí al conectar SoupDB.
+        Sin conexión con el motor. Las tablas aparecen al abrir la aplicación de escritorio.
       {:else if query.loadingTables}
         Cargando tablas…
       {:else}
