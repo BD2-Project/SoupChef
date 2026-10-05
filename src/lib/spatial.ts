@@ -52,7 +52,12 @@ export function formatMeters(meters: number): string {
     : `${Math.round(meters)} m`
 }
 
+/** Un polígono de la consulta, ya en coordenadas internas. */
+export type Polygon = GeoPoint[]
+
 export interface SpatialQuery {
+  /** Vértices de `intersects(col, POLYGON(...))`, si la consulta lo usa. */
+  polygon?: Polygon
   center: GeoPoint
   /** En las unidades de `unit`: metros con haversine, grados con euclidiana. */
   radius?: number
@@ -82,6 +87,28 @@ const DISTANCE_CALL =
 const RADIUS_PREDICATE = /dist(?:ance|ancia)\s*\([^;]*?\)\s*<=?\s*(-?[\d.]+)/i
 
 const LIMIT_CLAUSE = /LIMIT\s+(\d+)/i
+
+/** `intersects(col, POLYGON((lat, lon), (lat, lon), ...))`. */
+const INTERSECTS_CALL = /intersects\s*\(\s*\w+\s*,\s*POLYGON\s*\(([^;]*?)\)\s*\)/i
+const VERTEX = /\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/g
+
+/**
+ * Lee los vértices del polígono del SQL ejecutado.
+ *
+ * El literal lleva la latitud primero, igual que `POINT`, así que el vértice se
+ * invierte al pasarlo a GeoPoint.
+ */
+export function parsePolygon(sql: string): Polygon | null {
+  const call = INTERSECTS_CALL.exec(sql)
+  if (!call) return null
+
+  const vertices: Polygon = []
+  for (const match of call[1].matchAll(VERTEX)) {
+    vertices.push({ x: Number(match[2]), y: Number(match[1]) })
+  }
+  // Un polígono necesita al menos tres vértices para encerrar un área.
+  return vertices.length >= 3 ? vertices : null
+}
 
 /**
  * Lee el centro y el radio (o el k) del SQL ejecutado.

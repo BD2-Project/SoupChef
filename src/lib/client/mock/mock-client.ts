@@ -1,6 +1,6 @@
 import type { SoupClient } from '../client'
 import type { GeoPoint, PlanNode, QueryResult, TableInfo, Value } from '../../types/contract'
-import { euclideanDegrees, haversineMeters, isGeoPoint } from '../../spatial'
+import { euclideanDegrees, haversineMeters, isGeoPoint, parsePolygon } from '../../spatial'
 import { generateRow } from './rows'
 import { TABLES } from './tables'
 
@@ -57,6 +57,9 @@ function select(statement: string): QueryResult {
 
   const groupBy = /GROUP\s+BY\s+(\w+)/i.exec(rest)?.[1]
   if (groupBy) return aggregate(table, groupBy)
+
+  const polygonal = polygonQuery(table, names, selectList, rest)
+  if (polygonal) return polygonal
 
   const spatial = spatialQuery(table, names, selectList, rest)
   if (spatial) return spatial
@@ -145,6 +148,72 @@ function parseDistanceCall(sql: string): SpatialTarget | null {
 function distanceTo(center: GeoPoint, metric: SpatialTarget['metric']) {
   return (point: GeoPoint) =>
     metric === 'haversine' ? haversineMeters(center, point) : euclideanDegrees(center, point)
+}
+
+/** `intersects(columna, POLYGON(...))`: punto en polígono. */
+const INTERSECTS = /intersects\s*\(\s*(\w+)\s*,\s*POLYGON/i
+
+/**
+ * Punto en polígono por ray casting sobre los vértices.
+ *
+ * La frontera se considera incluida, igual que en el motor.
+ */
+function inside(point: GeoPoint, vertices: GeoPoint[]): boolean {
+  let hit = false
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const a = vertices[i]
+    const b = vertices[j]
+    const crosses = a.y > point.y !== b.y > point.y
+    if (crosses && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
+      hit = !hit
+    }
+  }
+  return hit
+}
+
+/** Consultas de intersección con polígono; devuelve null si no aplica. */
+function polygonQuery(
+  table: TableInfo,
+  names: string[],
+  selectList: string,
+  rest: string,
+): QueryResult | null {
+  const sql = `${selectList} ${rest}`
+  const call = INTERSECTS.exec(sql)
+  const vertices = parsePolygon(sql)
+  if (!call || !vertices) return null
+
+  const column = call[1]
+  const position = names.indexOf(column)
+  if (position < 0) {
+    return fail('ColumnNotFound', `La columna "${column}" no existe en ${table.name}`)
+  }
+  if (table.columns[position].type !== 'POINT') {
+    return fail('TypeError', `La columna "${column}" no es espacial`)
+  }
+
+  const projection =
+    selectList.trim() === '*' ? names : selectList.split(',').map((name) => name.trim())
+  const unknown = projection.find((name) => !names.includes(name))
+  if (unknown) return fail('ColumnNotFound', `La columna "${unknown}" no existe en ${table.name}`)
+  const positions = projection.map((name) => names.indexOf(name))
+
+  const rows = Array.from({ length: table.row_count }, (_, i) => generateRow(table.name, i))
+  const selected = rows.filter((row) => {
+    const point = row[position]
+    return isGeoPoint(point) && inside(point, vertices)
+  })
+
+  // El MBR del polígono poda antes de la prueba exacta, igual que en el motor.
+  const leaf = node(
+    'SpatialPolygonScan',
+    { index: `${table.name}_geo`, table: table.name, vertices: vertices.length },
+    selected.length,
+    RTREE_HEIGHT + pages(selected.length),
+  )
+  const projected = selected.map((row) => positions.map((index) => row[index]))
+  const plan = node('Project', { columns: projection.join(', ') }, projected.length, 0, [leaf])
+  return ok(projection, projected, plan)
 }
 
 /** Consultas por radio y k-NN sobre una columna POINT; devuelve null si no aplica. */
