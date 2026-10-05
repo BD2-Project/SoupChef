@@ -2,7 +2,14 @@
   import Panel from '../components/Panel.svelte'
   import MapView, { type MapMarker } from '../components/MapView.svelte'
   import { query } from '../query.svelte'
-  import { formatMeters, isGeoPoint, parseSpatialQuery, pointColumnIndex } from '../spatial'
+  import {
+    formatDegrees,
+    formatMeters,
+    isGeoPoint,
+    METERS_PER_DEGREE,
+    parseSpatialQuery,
+    pointColumnIndex,
+  } from '../spatial'
   import type { QueryResult } from '../types/contract'
 
   interface Props {
@@ -30,7 +37,7 @@
 
   const summary = $derived(
     spatial?.radius !== undefined
-      ? `radio de ${formatMeters(spatial.radius)}`
+      ? `radio de ${spatial.unit === 'deg' ? formatDegrees(spatial.radius) : formatMeters(spatial.radius)}`
       : spatial?.k !== undefined
         ? `${spatial.k} vecinos más cercanos`
         : `${markers.length} ${markers.length === 1 ? 'punto' : 'puntos'}`,
@@ -48,7 +55,11 @@
     <MapView
       {markers}
       center={spatial?.center ?? null}
-      radius={spatial?.radius ?? null}
+      radius={spatial?.radius === undefined
+        ? null
+        : spatial.unit === 'deg'
+          ? spatial.radius * METERS_PER_DEGREE
+          : spatial.radius}
       ranked={spatial?.k !== undefined}
     />
   {/if}
