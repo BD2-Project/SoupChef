@@ -117,11 +117,12 @@ function select(statement: string): QueryResult {
 }
 
 /**
- * `distancia(columna, POINT(lat, lon))` tal como lo escribe el enunciado (2.2.3).
- * Ojo al orden: en el SQL el literal es (latitud, longitud) y el GeoPoint guarda
- * x = longitud, y = latitud, igual que el Point(x, y) del R-Tree.
+ * `distancia(columna, POINT(lat, lon))`, o `distance(...)`, con la métrica
+ * opcional como tercer argumento. Es la forma del enunciado (2.2.3): el literal
+ * lleva la latitud primero y el GeoPoint guarda x = longitud, y = latitud.
  */
-const DISTANCE_CALL = /distancia\s*\(\s*(\w+)\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*\)/i
+const DISTANCE_CALL =
+  /dist(?:ance|ancia)\s*\(\s*(\w+)\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*(?:,\s*'(\w+)'\s*)?\)/i
 
 interface SpatialTarget {
   column: string
@@ -132,11 +133,12 @@ interface SpatialTarget {
 function parseDistanceCall(sql: string): SpatialTarget | null {
   const match = DISTANCE_CALL.exec(sql)
   if (!match) return null
-  const [, column, latitude, longitude] = match
+  const [, column, latitude, longitude, metricName] = match
   return {
     column,
     center: { x: Number(longitude), y: Number(latitude) },
-    metric: /USING\s+EUCLIDIANA/i.test(sql) ? 'euclidiana' : 'haversine',
+    // Sin tercer argumento el motor usa la euclidiana, que mide en grados.
+    metric: metricName?.toLowerCase() === 'haversine' ? 'haversine' : 'euclidiana',
   }
 }
 
@@ -172,7 +174,7 @@ function spatialQuery(
     })
     .sort((a, b) => a.distance - b.distance)
 
-  const radius = /distancia\s*\([^)]*\)\s*\)?\s*<\s*(-?[\d.]+)/i.exec(rest)?.[1]
+  const radius = /dist(?:ance|ancia)\s*\([^;]*?\)\s*<=?\s*(-?[\d.]+)/i.exec(rest)?.[1]
   const limit = /LIMIT\s+(\d+)/i.exec(rest)?.[1]
   const projection =
     selectList.trim() === '*' ? names : selectList.split(',').map((name) => name.trim())

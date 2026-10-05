@@ -41,6 +41,11 @@ export function formatPoint(point: GeoPoint): string {
   return `${point.y.toFixed(5)}, ${point.x.toFixed(5)}`
 }
 
+/** Un radio euclidiano se expresa en grados: llamarlo metros sería falso. */
+export function formatDegrees(degrees: number): string {
+  return `${degrees.toLocaleString('es-PE', { maximumFractionDigits: 4 })}°`
+}
+
 export function formatMeters(meters: number): string {
   return meters >= 1000
     ? `${(meters / 1000).toLocaleString('es-PE', { maximumFractionDigits: 2 })} km`
@@ -49,12 +54,34 @@ export function formatMeters(meters: number): string {
 
 export interface SpatialQuery {
   center: GeoPoint
+  /** En las unidades de `unit`: metros con haversine, grados con euclidiana. */
   radius?: number
   k?: number
   metric: 'haversine' | 'euclidiana'
+  unit: 'm' | 'deg'
 }
 
-const DISTANCE_CALL = /distancia\s*\(\s*\w+\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*\)/i
+/**
+ * Grados a metros, para dibujar un radio euclidiano sobre el mapa.
+ *
+ * Es una aproximación: un grado de longitud se acorta con la latitud, así que el
+ * conjunto que cumple el predicado euclidiano es en rigor una elipse. Sirve para
+ * situar el círculo, no para medir.
+ */
+export const METERS_PER_DEGREE = 111_320
+
+/**
+ * `distancia(col, POINT(lat, lon))`, o `distance(...)`, con la métrica opcional
+ * como tercer argumento. Es la forma que fija el enunciado (2.2.3) y la que
+ * acepta el motor.
+ */
+const DISTANCE_CALL =
+  /dist(?:ance|ancia)\s*\(\s*\w+\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*(?:,\s*'(\w+)'\s*)?\)/i
+
+/** Radio del predicado: `... ) < 5` o `< 5.0`, con el operador `<` o `<=`. */
+const RADIUS_PREDICATE = /dist(?:ance|ancia)\s*\([^;]*?\)\s*<=?\s*(-?[\d.]+)/i
+
+const LIMIT_CLAUSE = /LIMIT\s+(\d+)/i
 
 /**
  * Lee el centro y el radio (o el k) del SQL ejecutado.
@@ -67,14 +94,19 @@ export function parseSpatialQuery(sql: string): SpatialQuery | null {
   const match = DISTANCE_CALL.exec(sql)
   if (!match) return null
 
-  const [, latitude, longitude] = match
-  const radius = /distancia\s*\([^)]*\)\s*\)?\s*<\s*(-?[\d.]+)/i.exec(sql)?.[1]
-  const limit = /LIMIT\s+(\d+)/i.exec(sql)?.[1]
+  // El literal va en el orden del enunciado: latitud primero.
+  const [, latitude, longitude, metricName] = match
+  // Sin tercer argumento el motor usa la euclidiana: el radio queda en grados.
+  const metric = metricName?.toLowerCase() === 'haversine' ? 'haversine' : 'euclidiana'
+  const radius = RADIUS_PREDICATE.exec(sql)?.[1]
+  const limit = LIMIT_CLAUSE.exec(sql)?.[1]
 
   return {
     center: { x: Number(longitude), y: Number(latitude) },
+    // Haversine llega en metros; la euclidiana, en grados de coordenada.
     radius: radius === undefined ? undefined : Number(radius),
     k: radius === undefined && limit !== undefined ? Number(limit) : undefined,
-    metric: /USING\s+EUCLIDIANA/i.test(sql) ? 'euclidiana' : 'haversine',
+    metric,
+    unit: metric === 'haversine' ? 'm' : 'deg',
   }
 }
