@@ -88,9 +88,28 @@ const RADIUS_PREDICATE = /dist(?:ance|ancia)\s*\([^;]*?\)\s*<=?\s*(-?[\d.]+)/i
 
 const LIMIT_CLAUSE = /LIMIT\s+(\d+)/i
 
-/** `intersects(col, POLYGON((lat, lon), (lat, lon), ...))`. */
-const INTERSECTS_CALL = /intersects\s*\(\s*\w+\s*,\s*POLYGON\s*\(([^;]*?)\)\s*\)/i
+/** Abre la lista de vértices: `intersects(columna, POLYGON(` */
+const INTERSECTS_CALL = /intersects\s*\(\s*\w+\s*,\s*POLYGON\s*\(/i
 const VERTEX = /\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/g
+
+/**
+ * Contenido de un paréntesis que se abre en `start`, contando anidamiento.
+ *
+ * Un regex no sirve acá: la lista de vértices contiene paréntesis, y cualquier
+ * patrón que busque el cierre termina parando en el del último vértice y
+ * perdiéndolo. El polígono se dibujaba con un lado de menos.
+ */
+function balanced(sql: string, start: number): string | null {
+  let depth = 0
+  for (let i = start; i < sql.length; i++) {
+    if (sql[i] === '(') depth++
+    else if (sql[i] === ')') {
+      depth--
+      if (depth === 0) return sql.slice(start + 1, i)
+    }
+  }
+  return null
+}
 
 /**
  * Lee los vértices del polígono del SQL ejecutado.
@@ -102,8 +121,11 @@ export function parsePolygon(sql: string): Polygon | null {
   const call = INTERSECTS_CALL.exec(sql)
   if (!call) return null
 
+  const lista = balanced(sql, call.index + call[0].length - 1)
+  if (lista === null) return null
+
   const vertices: Polygon = []
-  for (const match of call[1].matchAll(VERTEX)) {
+  for (const match of lista.matchAll(VERTEX)) {
     vertices.push({ x: Number(match[2]), y: Number(match[1]) })
   }
   // Un polígono necesita al menos tres vértices para encerrar un área.
