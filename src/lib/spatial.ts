@@ -71,8 +71,9 @@ export interface SpatialQuery {
 export const METERS_PER_DEGREE = 111_320
 
 /**
- * `distance(col, POINT(lon, lat))` o `distancia(...)`, con la métrica opcional
- * como tercer argumento. El motor acepta los dos nombres desde el alias del lexer.
+ * `distancia(col, POINT(lat, lon))`, o `distance(...)`, con la métrica opcional
+ * como tercer argumento. Es la forma que fija el enunciado (2.2.3) y la que
+ * acepta el motor.
  */
 const DISTANCE_CALL =
   /dist(?:ance|ancia)\s*\(\s*\w+\s*,\s*POINT\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*(?:,\s*'(\w+)'\s*)?\)/i
@@ -81,9 +82,6 @@ const DISTANCE_CALL =
 const RADIUS_PREDICATE = /dist(?:ance|ancia)\s*\([^;]*?\)\s*<=?\s*(-?[\d.]+)/i
 
 const LIMIT_CLAUSE = /LIMIT\s+(\d+)/i
-
-/** El motor devuelve haversine en kilómetros; el mapa trabaja en metros. */
-const KM_TO_M = 1000
 
 /**
  * Lee el centro y el radio (o el k) del SQL ejecutado.
@@ -96,8 +94,8 @@ export function parseSpatialQuery(sql: string): SpatialQuery | null {
   const match = DISTANCE_CALL.exec(sql)
   if (!match) return null
 
-  // Orden del literal: el motor lee POINT(x, y), es decir longitud y después latitud.
-  const [, longitude, latitude, metricName] = match
+  // El literal va en el orden del enunciado: latitud primero.
+  const [, latitude, longitude, metricName] = match
   // Sin tercer argumento el motor usa la euclidiana: el radio queda en grados.
   const metric = metricName?.toLowerCase() === 'haversine' ? 'haversine' : 'euclidiana'
   const radius = RADIUS_PREDICATE.exec(sql)?.[1]
@@ -105,8 +103,8 @@ export function parseSpatialQuery(sql: string): SpatialQuery | null {
 
   return {
     center: { x: Number(longitude), y: Number(latitude) },
-    // Haversine llega en kilómetros; la euclidiana, en grados de coordenada.
-    radius: radius === undefined ? undefined : Number(radius) * (metric === 'haversine' ? KM_TO_M : 1),
+    // Haversine llega en metros; la euclidiana, en grados de coordenada.
+    radius: radius === undefined ? undefined : Number(radius),
     k: radius === undefined && limit !== undefined ? Number(limit) : undefined,
     metric,
     unit: metric === 'haversine' ? 'm' : 'deg',
