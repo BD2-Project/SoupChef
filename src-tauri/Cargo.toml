@@ -1,6 +1,6 @@
 [package]
 name = "soupchef"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cliente de escritorio de SoupDB"
 authors = ["BD2-Project"]
 edition = "2021"
