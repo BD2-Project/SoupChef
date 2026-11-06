@@ -1,6 +1,6 @@
 [package]
 name = "soupchef"
-version = "0.2.0"
+version = "0.3.0"
 description = "Cliente de escritorio de SoupDB"
 authors = ["BD2-Project"]
 edition = "2021"
@@ -21,7 +21,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rsoup = { git = "https://github.com/BD2-Project/rsoup.git", branch = "main" }
+# Protocolo v1.1 (type_name/encoding, VECTOR, opaque, prepared statements).
+# Commit probado de la rama de integración. Al publicarse rsoup v0.2.0, usar
+# `tag = "v0.2.0"`.
+rsoup = { git = "https://github.com/BD2-Project/rsoup.git", rev = "21358f7c579022e6908cf271da8ae392f392dae0" }
 tokio = { version = "1", features = ["sync"] }
 
 

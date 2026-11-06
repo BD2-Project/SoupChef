@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { formatPoint, isGeoPoint } from '../spatial'
-  import type { Value } from '../types/contract'
+  import { isGeoPoint } from '../spatial'
+  import type { ColumnType, Value } from '../types/contract'
+  import { displayValue } from '../values'
 
   interface Props {
     columns: string[]
+    /** Tipo de cada columna, para describirlo en la cabecera (protocolo v1.1). */
+    types?: ColumnType[]
     rows: Value[][]
     /** Índice de la fila a resaltar, para sincronizar con el mapa. */
     highlighted?: number | null
@@ -12,7 +15,7 @@
     follow?: boolean
   }
 
-  let { columns, rows, highlighted = null, onhover, follow = false }: Props = $props()
+  let { columns, types = [], rows, highlighted = null, onhover, follow = false }: Props = $props()
 
   const ROW_HEIGHT = 28
   const OVERSCAN = 8
@@ -23,12 +26,7 @@
   let scrollTop = $state(0)
   let viewportHeight = $state(0)
 
-  function display(value: Value): string {
-    if (value === null) return 'NULL'
-    // Una columna POINT es un objeto: se muestra como "latitud, longitud".
-    if (isGeoPoint(value)) return formatPoint(value)
-    return String(value)
-  }
+  const display = (value: Value): string => displayValue(value)
 
   // El ancho se estima con una muestra: medir 100 000 filas bloquearía la interfaz.
   const widths = $derived(
@@ -94,8 +92,14 @@
       style:height="{ROW_HEIGHT}px"
     >
       <span role="columnheader" aria-label="Número de fila" class="px-2"></span>
-      {#each columns as column}
-        <span role="columnheader" class="truncate px-2 font-sans leading-7 font-medium text-muted">{column}</span>
+      {#each columns as column, index}
+        <span
+          role="columnheader"
+          title={types[index] ? `tipo: ${types[index]}` : undefined}
+          class="truncate px-2 font-sans leading-7 font-medium text-muted"
+        >
+          {column}
+        </span>
       {/each}
     </div>
 

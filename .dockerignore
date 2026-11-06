@@ -1,0 +1,14 @@
+.git
+.github
+.svelte-kit
+build
+dist
+node_modules
+src-tauri
+docs
+benchmarks
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store

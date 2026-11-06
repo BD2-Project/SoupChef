@@ -1,12 +1,27 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { client } from '../client'
+  import { EXAMPLES } from '../examples'
   import Panel from '../components/Panel.svelte'
   import SqlEditor from '../components/SqlEditor.svelte'
   import { query } from '../query.svelte'
 
   let editor = $state<ReturnType<typeof SqlEditor>>()
 
-  const shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
+  // Se corrige al hidratar: el servidor no conoce la plataforma del usuario.
+  let shortcut = $state('Ctrl ↵')
+  onMount(() => {
+    shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
+  })
   const error = $derived(query.result?.error ?? null)
+
+  function loadExample(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement
+    const example = EXAMPLES[Number(select.value)]
+    if (example) query.sql = example.sql
+    // Vuelve al placeholder: elegir dos veces el mismo ejemplo debe reescribirlo.
+    select.value = ''
+  }
 </script>
 
 <Panel title="Consulta">
@@ -19,6 +34,29 @@
   {/snippet}
 
   {#snippet actions()}
+    <select
+      aria-label="Ejemplos de consulta"
+      class="h-6 max-w-40 rounded-md border border-line bg-surface px-1.5 text-micro text-muted transition-colors duration-150 hover:text-text focus:border-accent focus:outline-none"
+      onchange={loadExample}
+    >
+      <option value="" selected>Ejemplos…</option>
+      {#each EXAMPLES as example, index (example.label)}
+        <option value={index}>{example.label}</option>
+      {/each}
+    </select>
+
+    {#if client.prepared}
+      <button
+        type="button"
+        onclick={() => query.runPreparedDemo()}
+        disabled={query.running}
+        title="Prepara SELECT … WHERE id = $1 y la ejecuta dos veces"
+        class="inline-flex h-6 items-center rounded-md border border-line px-2 text-micro font-medium text-muted transition-colors duration-150 hover:bg-raised hover:text-text disabled:cursor-progress disabled:opacity-60"
+      >
+        Prepared
+      </button>
+    {/if}
+
     <button
       type="button"
       onclick={() => query.run(editor?.getStatement())}
@@ -43,10 +81,18 @@
         bind:this={editor}
         value={query.sql}
         tables={query.tables}
+        plugins={query.plugins}
         onchange={(value) => (query.sql = value)}
         onrun={(statement) => query.run(statement)}
       />
     </div>
+
+    {#if query.preparedNote}
+      <div class="flex shrink-0 items-baseline gap-2 border-t border-line bg-sunken px-3 py-2 text-micro">
+        <span class="font-mono font-medium text-accent-text">prepared</span>
+        <span class="text-muted">{query.preparedNote}</span>
+      </div>
+    {/if}
 
     {#if error}
       <div role="alert" class="flex shrink-0 items-baseline gap-2 border-t border-line bg-sunken px-3 py-2 text-micro">

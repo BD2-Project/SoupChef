@@ -1,20 +1,16 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import type {
-  ColumnInfo,
-  ColumnType,
-  IndexInfo,
-  PlanNode,
-  QueryResult,
-  TableInfo,
-  Value,
-} from '../types/contract'
+import { buildPlugins, buildTables, buildTypes, columnType } from '../catalog'
+import type { PluginInfo, QueryResult, TableInfo, TypeInfo, Value } from '../types/contract'
 import type { SoupClient } from './client'
+import { extractPlan, withJsonPlan } from './explain'
 
 /** Forma que devuelven los comandos de Tauri (ver src-tauri/src/driver.rs). */
 interface WireColumn {
   name: string
-  type_code: number
+  type_name: string
+  encoding: number
+  size: number
   length: number
 }
 
@@ -29,16 +25,6 @@ interface WireError {
   message: string
 }
 
-const ORGANIZATIONS: Record<string, string> = {
-  HEAP: 'heap',
-  SEQUENTIAL: 'sequential',
-}
-
-const INDEX_KINDS: Record<string, string> = {
-  HASH: 'extendible_hash',
-  BTREE: 'bplus_unclustered',
-}
-
 function toError(error: unknown): WireError {
   if (error && typeof error === 'object' && 'kind' in error && 'message' in error) {
     return error as WireError
@@ -46,113 +32,80 @@ function toError(error: unknown): WireError {
   return { kind: 'DriverError', message: String(error) }
 }
 
-const COLUMN_TYPES: ColumnType[] = ['INT', 'FLOAT', 'VARCHAR', 'TEXT', 'BOOL']
-
-/** SysColumns guarda el tipo como texto; lo desconocido cae en TEXT. */
-function columnType(name: string): ColumnType {
-  const upper = name.toUpperCase() as ColumnType
-  return COLUMN_TYPES.includes(upper) ? upper : 'TEXT'
-}
-
-/** `EXPLAIN` sin opciones; el grupo 1 es lo que va entre EXPLAIN y la sentencia. */
-const EXPLAIN_PREFIX = /^(\s*EXPLAIN\s+(?:ANALYZE\s+)?)(?!\()/i
-
-/**
- * Pide el plan en JSON cuando la consulta es un `EXPLAIN` sin formato explícito.
- *
- * El panel de plan necesita el árbol estructurado. Si el usuario ya escribió
- * `(FORMAT ...)` se respeta lo que pidió.
- */
-function withJsonPlan(sql: string): string {
-  return sql.replace(EXPLAIN_PREFIX, '$1(FORMAT JSON) ')
-}
-
-/**
- * Lee el árbol del plan de un resultado de `EXPLAIN (FORMAT JSON)`.
- *
- * Devuelve `null` para cualquier otra consulta. Un JSON mal formado tampoco es
- * motivo para fallar: se degrada a mostrar las filas tal cual.
- */
-function extractPlan(result: WireResult): PlanNode | null {
-  if (result.columns.length !== 1 || result.columns[0].name !== 'QUERY PLAN') return null
-  if (result.rows.length !== 1) return null
-
-  const raw = result.rows[0][0]
-  if (typeof raw !== 'string') return null
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return isPlanNode(parsed) ? parsed : null
-  } catch {
-    return null
+function toQueryResult(result: WireResult, plan: ReturnType<typeof extractPlan>): QueryResult {
+  return {
+    columns: plan ? [] : result.columns.map((column) => column.name),
+    columnTypes: plan ? [] : result.columns.map((column) => columnType(column.type_name)),
+    rows: plan ? [] : result.rows,
+    affected_rows: result.affected,
+    plan,
+    error: null,
   }
-}
-
-function isPlanNode(value: unknown): value is PlanNode {
-  if (typeof value !== 'object' || value === null) return false
-  const node = value as Record<string, unknown>
-  return typeof node.op === 'string' && Array.isArray(node.children)
 }
 
 export class TauriClient implements SoupClient {
   readonly source = 'SoupDB · rsoup'
   readonly connected = true
+  readonly prepared = true
 
   async execute(sql: string): Promise<QueryResult> {
     try {
       // El motor solo devuelve el árbol estructurado si se lo piden: un EXPLAIN
       // a secas trae el dibujo de texto, que el panel no puede reconstruir.
       const result = await invoke<WireResult>('query_sql', { sql: withJsonPlan(sql) })
-      const plan = extractPlan(result)
-      return {
-        columns: plan ? [] : result.columns.map((column) => column.name),
-        rows: plan ? [] : result.rows,
-        affected_rows: result.affected,
-        plan,
-        error: null,
-      }
+      return toQueryResult(result, extractPlan(result))
     } catch (error) {
       const { kind, message } = toError(error)
       return { columns: [], rows: [], affected_rows: 0, plan: null, error: { kind, message } }
     }
   }
 
-  /** El catálogo del motor es consultable por SQL: SysTables, SysColumns y SysIndexes. */
-  async listTables(): Promise<TableInfo[]> {
-    const tables = await this.rows('SELECT table_name, strategy FROM SysTables')
-    const columns = await this.rows(
-      'SELECT table_name, column_name, type_name, length FROM SysColumns ORDER BY position',
-    )
-    const indexes = await this.rows('SELECT index_name, table_name, column_name, index_type FROM SysIndexes')
+  async prepare(name: string, sql: string): Promise<void> {
+    await invoke('prepare_sql', { name, sql })
+  }
 
-    const result: TableInfo[] = []
-    for (const [name, strategy] of tables) {
-      const tableName = String(name)
-      result.push({
-        name: tableName,
-        organization: ORGANIZATIONS[String(strategy)] ?? String(strategy).toLowerCase(),
-        columns: columns
-          .filter((row) => row[0] === tableName)
-          .map(
-            (row): ColumnInfo => ({
-              name: String(row[1]),
-              type: columnType(String(row[2])),
-              length: Number(row[3]) || undefined,
-              primary_key: false,
-            }),
-          ),
-        indexes: indexes
-          .filter((row) => row[1] === tableName)
-          .map(
-            (row): IndexInfo => ({
-              name: String(row[0]),
-              kind: INDEX_KINDS[String(row[3])] ?? String(row[3]).toLowerCase(),
-              column: String(row[2]),
-            }),
-          ),
-        row_count: await this.count(tableName),
-      })
+  async executePrepared(name: string, params: Value[]): Promise<QueryResult> {
+    try {
+      const result = await invoke<WireResult>('execute_sql', { name, params })
+      return toQueryResult(result, null)
+    } catch (error) {
+      const { kind, message } = toError(error)
+      return { columns: [], rows: [], affected_rows: 0, plan: null, error: { kind, message } }
     }
-    return result
+  }
+
+  async deallocate(name: string): Promise<void> {
+    await invoke('deallocate_sql', { name })
+  }
+
+  /** El catálogo del motor es consultable por SQL (SysTables, SysColumns, SysIndexes…). */
+  async listTables(): Promise<TableInfo[]> {
+    const tables = (await this.tryRows('SELECT table_name, strategy FROM SysTables')) ?? []
+    const columns =
+      (await this.tryRows('SELECT table_name, column_name, type_name, length FROM SysColumns ORDER BY position')) ?? []
+    const indexes = (await this.indexes()) ?? []
+
+    const counts: Record<string, number> = {}
+    await Promise.all(
+      tables.map(async ([name]) => {
+        counts[String(name)] = await this.count(String(name))
+      }),
+    )
+    return buildTables(tables, columns, indexes, counts)
+  }
+
+  /** Plugins cargados (SysPlugins) + opciones declaradas por sus índices. */
+  async listPlugins(): Promise<PluginInfo[]> {
+    const plugins =
+      (await this.tryRows('SELECT plugin_name, version, api_version, enabled FROM SysPlugins')) ?? []
+    const declared =
+      (await this.tryRows('SELECT plugin_name, capabilities_json FROM SysIndexes WHERE plugin_name IS NOT NULL')) ?? []
+    return buildPlugins(plugins, declared)
+  }
+
+  /** Registro de tipos del wire v1.1 (SysTypes): nombre, encoding y tamaño. */
+  async listTypes(): Promise<TypeInfo[]> {
+    return buildTypes((await this.tryRows('SELECT type_name, plugin_name, encoding, size FROM SysTypes')) ?? [])
   }
 
   async begin(): Promise<void> {
@@ -167,9 +120,26 @@ export class TauriClient implements SoupClient {
     await invoke('rollback')
   }
 
+  /**
+   * `SysIndexes` unificada (plan de plugins §5). Si el gestor aún no expone las
+   * columnas de plugin, se degrada a la forma clásica.
+   */
+  private async indexes(): Promise<Value[][] | null> {
+    const rich = await this.tryRows(
+      'SELECT index_name, table_name, column_name, index_type, plugin_name, options_json, capabilities_json, item_count FROM SysIndexes',
+    )
+    if (rich) return rich
+    return this.tryRows('SELECT index_name, table_name, column_name, index_type FROM SysIndexes')
+  }
+
   private async rows(sql: string): Promise<Value[][]> {
+    return (await this.tryRows(sql)) ?? []
+  }
+
+  /** Igual que `rows`, pero conserva el error para degradar sin romper el panel. */
+  private async tryRows(sql: string): Promise<Value[][] | null> {
     const result = await this.execute(sql)
-    return result.error ? [] : result.rows
+    return result.error ? null : result.rows
   }
 
   private async count(table: string): Promise<number> {

@@ -3,7 +3,14 @@ export type Theme = 'dark' | 'light'
 const STORAGE_KEY = 'soupchef-theme'
 
 class ThemeState {
-  current = $state<Theme>(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
+  // SSR y el primer render del cliente deben coincidir; onMount aplica la
+  // preferencia real que app.html ya dejó en el DOM.
+  current = $state<Theme>('dark')
+
+  sync(): void {
+    if (typeof document === 'undefined') return
+    this.current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+  }
 
   toggle(): void {
     this.set(this.current === 'dark' ? 'light' : 'dark')
@@ -11,7 +18,7 @@ class ThemeState {
 
   set(theme: Theme): void {
     this.current = theme
-    document.documentElement.dataset.theme = theme
+    if (typeof document !== 'undefined') document.documentElement.dataset.theme = theme
     try {
       localStorage.setItem(STORAGE_KEY, theme)
     } catch {
