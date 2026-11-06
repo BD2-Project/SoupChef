@@ -86,7 +86,8 @@ docker run --rm -p 3000:3000 \
 | `HOST` | `0.0.0.0` | Interfaz de escucha |
 
 El workflow `.github/workflows/container.yml` publica
-`ghcr.io/BD2-Project/soupchef` al empujar un tag `v*`.
+`ghcr.io/BD2-Project/soupchef` al empujar un tag `v*`. La imagen es **multi-arch**
+(`linux/amd64` y `linux/arm64`), así que en Apple Silicon corre nativa.
 
 Para la demo completa, comparte la red con el `docker-compose.yml` de SoupDB
 (el servicio se llama `engine`):
