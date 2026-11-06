@@ -21,7 +21,7 @@ Convención formalizada el 2026-11-02 tras la auditoría de ramas, tags y milest
 |---|---|---|---|---|
 | `v0.1.0` | 2026-09-27 | **Avance 1** | #20 | Cuatro paneles (archivos, consultas CodeMirror, resultados virtualizados, plan), sistema de diseño, conexión al motor real vía driver rsoup |
 | `v0.2.0` | 2026-10-05 | **Entrega Parcial** (espacial) | #34 | Contrato POINT, mapa Leaflet, gráficas secuencial vs R-Tree vs GiST (2.2.4), mapa con datos reales del motor, polígonos de intersección, plan estructurado dibujado, fixes de driver Tauri |
-| `v0.3.0` | 2026-11-06 | **Plugins + web SSR** | pendiente | SQL `SEARCH ... USING ... WITH (...)`, `SCORE()`, índices auto-mantenidos visibles, protocolo v1.1 (`VECTOR`/opacos), prepared statements y autocompletado de plugins. Migración a SvelteKit con SSR, driver binario en TypeScript, imagen `ghcr.io/BD2-Project/soupchef` y CI |
+| `v0.3.0` | 2026-11-06 | **Plugins + web SSR** | #39 | SQL `SEARCH ... USING ... WITH (...)`, `SCORE()`, índices auto-mantenidos visibles, protocolo v1.1 (`VECTOR`/opacos), prepared statements y autocompletado de plugins. Migración a SvelteKit con SSR, driver binario en TypeScript, imagen `ghcr.io/BD2-Project/soupchef` y CI |
 
 ## Próxima versión
 
