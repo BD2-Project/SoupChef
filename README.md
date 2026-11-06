@@ -38,6 +38,11 @@ SOUPDB_HOST=127.0.0.1 SOUPDB_PORT=55432 pnpm dev
 # http://localhost:5173
 ```
 
+> **Protocolo**: el driver SSR envía frames `0x02` para recibir el header
+> schema-driven (v1.1); con `SOUPDB_WIRE_VERSION=1` habla el formato legado. El
+> decoder acepta el `size` u16 del codec Python y también el u32 de la propuesta
+> de `rsoup`, y valida que el payload se consuma completo para no confundirlos.
+
 ### Contra el motor real (app de escritorio)
 
 ```bash
