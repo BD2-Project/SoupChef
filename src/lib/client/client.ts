@@ -13,4 +13,7 @@ export interface SoupClient {
   /** `execute` ya está tomado por las consultas SQL; este ejecuta un prepared. */
   executePrepared(name: string, params: Value[]): Promise<QueryResult>
   deallocate(name: string): Promise<void>
+  begin(): Promise<void>
+  commit(): Promise<void>
+  rollback(): Promise<void>
 }

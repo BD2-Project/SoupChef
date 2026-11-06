@@ -1,5 +1,5 @@
 <script lang="ts">
-  import L from 'leaflet'
+  import { onMount } from 'svelte'
   import 'leaflet/dist/leaflet.css'
 
   import { highlight } from '../highlight.svelte'
@@ -32,43 +32,30 @@
   const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
   const ATTRIBUTION = '&copy; colaboradores de OpenStreetMap'
 
-  let map: L.Map | undefined
-  let tiles: L.TileLayer | undefined
-  let overlay: L.LayerGroup | undefined
+  type LeafletModule = typeof import('leaflet')
+
+  let container: HTMLDivElement | undefined = $state()
+  // Leaflet toca `window` al importarse: se carga dinámicamente solo en el cliente.
+  let L: LeafletModule | undefined
+  let map: import('leaflet').Map | undefined
+  let tiles: import('leaflet').TileLayer | undefined
+  let overlay: import('leaflet').LayerGroup | undefined
   // Se guardan por fila para poder resaltar sin volver a dibujar todo el mapa.
-  let circles = new Map<number, L.CircleMarker>()
+  let circles = new Map<number, import('leaflet').CircleMarker>()
 
   function style(name: '--accent' | '--heat-3' | '--muted' | '--surface'): string {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   }
 
-  function mountMap(node: HTMLElement) {
-    map = L.map(node, { attributionControl: true, zoomControl: true, preferCanvas: true })
-    map.setView([-12.0464, -77.0428], 12)
-    tiles = L.tileLayer(TILE_URL, { attribution: ATTRIBUTION, maxZoom: 19 }).addTo(map)
-    overlay = L.layerGroup().addTo(map)
-    draw()
-
-    // El panel cambia de tamaño al aparecer o al redimensionar la ventana.
-    const observer = new ResizeObserver(() => map?.invalidateSize())
-    observer.observe(node)
-
-    return () => {
-      observer.disconnect()
-      map?.remove()
-      map = undefined
-    }
-  }
-
   function draw() {
-    if (!map || !overlay) return
+    if (!L || !map || !overlay) return
     overlay.clearLayers()
     circles = new Map()
 
     // El polígono se dibuja primero para que quede por debajo de los marcadores.
     if (polygon && polygon.length >= 3) {
       L.polygon(
-        polygon.map((vertex) => [vertex.y, vertex.x] as L.LatLngExpression),
+        polygon.map((vertex) => [vertex.y, vertex.x] as import('leaflet').LatLngExpression),
         {
           color: style('--heat-3'),
           weight: 1.5,
@@ -148,11 +135,16 @@
   }
 
   function fit() {
-    if (!map) return
-    const positions: L.LatLngExpression[] = markers.map((marker) => [marker.point.y, marker.point.x])
+    if (!L || !map) return
+    const positions: import('leaflet').LatLngExpression[] = markers.map((marker) => [
+      marker.point.y,
+      marker.point.x,
+    ])
     if (center) positions.push([center.y, center.x])
     // El encuadre incluye la región aunque no haya ningún punto dentro.
-    if (polygon) positions.push(...polygon.map((vertex) => [vertex.y, vertex.x] as L.LatLngExpression))
+    if (polygon) {
+      positions.push(...polygon.map((vertex) => [vertex.y, vertex.x] as import('leaflet').LatLngExpression))
+    }
     if (positions.length === 0) return
 
     const bounds = L.latLngBounds(positions)
@@ -161,6 +153,35 @@
     }
     map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 })
   }
+
+  onMount(() => {
+    let disposed = false
+    let observer: ResizeObserver | undefined
+
+    void import('leaflet').then((leaflet) => {
+      if (disposed || !container) return
+      L = leaflet
+      map = leaflet.map(container, { attributionControl: true, zoomControl: true, preferCanvas: true })
+      map.setView([-12.0464, -77.0428], 12)
+      tiles = leaflet.tileLayer(TILE_URL, { attribution: ATTRIBUTION, maxZoom: 19 }).addTo(map)
+      overlay = leaflet.layerGroup().addTo(map)
+
+      // El panel cambia de tamaño al aparecer o al redimensionar la ventana.
+      observer = new ResizeObserver(() => map?.invalidateSize())
+      observer.observe(container)
+      draw()
+    })
+
+    return () => {
+      disposed = true
+      observer?.disconnect()
+      map?.remove()
+      map = undefined
+      tiles = undefined
+      overlay = undefined
+      circles.clear()
+    }
+  })
 
   $effect(() => {
     // Se vuelve a dibujar cuando cambian los resultados o el punto de consulta.
@@ -174,6 +195,7 @@
 
   $effect(() => {
     const active = highlight.row
+    if (!L) return
     const accent = style('--accent')
     const hot = style('--heat-3')
     const surface = style('--surface')
@@ -189,7 +211,7 @@
   const darkTiles = $derived(theme.current === 'dark')
 </script>
 
-<div class="h-full min-h-0 w-full" class:dark-tiles={darkTiles} {@attach mountMap}></div>
+<div bind:this={container} class="h-full min-h-0 w-full" class:dark-tiles={darkTiles}></div>
 
 <style>
   /* El mapa claro se invierte para el tema oscuro: OSM no publica tiles oscuros. */

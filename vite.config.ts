@@ -1,19 +1,23 @@
-import { svelte } from '@sveltejs/vite-plugin-svelte'
+import adapter from '@sveltejs/adapter-node'
+import { sveltekit } from '@sveltejs/kit/vite'
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
-const host = process.env.TAURI_DEV_HOST
-
-// https://vite.dev/config/
+// Build web con SSR: el servidor Node abre el TCP contra el motor.
+// SvelteKit 3 toma su configuración desde este plugin (ya no existe
+// svelte.config.js).
 export default defineConfig({
-  plugins: [svelte(), tailwindcss()],
-  // Tauri necesita ver los errores de Rust y un puerto fijo para devUrl
-  clearScreen: false,
+  plugins: [
+    tailwindcss(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+      // El proyecto ya usaba `public/` (Vite); SvelteKit por defecto busca `static/`.
+      files: { assets: 'public' },
+      adapter: adapter({ out: 'build' }),
+    }),
+  ],
   server: {
-    port: 1420,
-    strictPort: true,
-    host: host || '127.0.0.1',
-    hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
-    watch: { ignored: ['**/src-tauri/**'] },
+    port: 5173,
   },
 })

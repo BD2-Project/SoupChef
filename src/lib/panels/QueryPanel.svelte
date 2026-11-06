@@ -7,7 +7,8 @@
 
   let editor = $state<ReturnType<typeof SqlEditor>>()
 
-  const shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
+  const shortcut =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
   const error = $derived(query.result?.error ?? null)
 
   function loadExample(event: Event) {

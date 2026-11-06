@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { client } from './lib/client'
   import StatusBar from './lib/components/StatusBar.svelte'
   import ThemeToggle from './lib/components/ThemeToggle.svelte'
@@ -11,7 +12,10 @@
   import { query } from './lib/query.svelte'
   import { pointColumnIndex } from './lib/spatial'
 
-  query.loadTables()
+  // En SSR no hay motor al otro lado del módulo; el catálogo se pide al hidratar.
+  onMount(() => {
+    void query.loadTables()
+  })
 
   // El plan solo llega con EXPLAIN ANALYZE; el mapa, solo si el resultado trae coordenadas.
   // Sin ninguno de los dos, consulta y resultados ocupan todo el ancho.

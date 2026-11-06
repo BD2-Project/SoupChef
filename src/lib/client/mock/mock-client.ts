@@ -802,6 +802,19 @@ export class MockClient implements SoupClient {
     if (!this.statements.delete(name)) throw new Error(`El prepared "${name}" no existe`)
   }
 
+  // Transacciones del mock: sin estado real, pero la interfaz queda completa.
+  async begin(): Promise<void> {
+    await delay(LATENCY_MS / 3)
+  }
+
+  async commit(): Promise<void> {
+    await delay(LATENCY_MS / 3)
+  }
+
+  async rollback(): Promise<void> {
+    await delay(LATENCY_MS / 3)
+  }
+
   private run(statement: string): QueryResult {
     const keyword = statement.split(/\s+/, 1)[0]?.toUpperCase() ?? ''
 
