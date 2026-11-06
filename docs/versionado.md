@@ -41,6 +41,10 @@ El tag `v0.3.0` publica `ghcr.io/BD2-Project/soupchef:v0.3.0` (y `:0.3`) mediant
 `adapter-node`; `SOUPDB_HOST`/`SOUPDB_PORT` apuntan al gestor. El escritorio
 (Tauri) se sigue empaquetando aparte y usa `rsoup`.
 
+`v0.3.0` se republicó como índice **multi-arch** (`linux/amd64` + `linux/arm64`)
+el 2026-11-06; el tag se movió al commit que agrega QEMU/`platforms` al workflow
+(el código de la aplicación es el mismo).
+
 ## Motor asociado
 
 El motor **SoupDB** (repo fuente de las entregas) mantiene los tags de referencia por milestone; este repo los acompaña con su UI correspondiente. La UI tolera que el gestor todavía no exponga las Fases 4–6: el mock del navegador (`VITE_SOUPCHEF_MOCK=true`) demuestra `SEARCH`/`SCORE`, `VECTOR` y prepared, y el catálogo se degrada si faltan columnas nuevas.
