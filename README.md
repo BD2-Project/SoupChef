@@ -53,6 +53,43 @@ El plan se pide de forma explícita, como en PostgreSQL. Una consulta normal dev
 EXPLAIN ANALYZE SELECT id, autor FROM papers ORDER BY autor DESC LIMIT 3;
 ```
 
+## Búsquedas de plugins (v0.3.0)
+
+El gestor expone índices full-text y vectoriales como plugins. El SQL de búsqueda
+es uniforme para todos:
+
+```sql
+SELECT *, SCORE()
+FROM docs
+WHERE SEARCH(contenido, 'índice invertido') USING INVERTED
+  WITH (method = 'bm25', k = 10)
+ORDER BY SCORE() DESC;
+
+SELECT id, nombre, SCORE()
+FROM imagenes
+WHERE SEARCH(archivo, 'foto-03.jpg') USING HNSW
+  WITH (metric = 'cosine', k = 5);
+```
+
+La UI acompaña esos cambios:
+
+- **Archivos** lista los índices de plugin (`INVERTED`/`IVF`/`HNSW`) con sus
+  opciones `WITH`, los plugins cargados (`SysPlugins`) y los tipos registrados
+  para el wire (`SysTypes`).
+- **Resultados** muestra `SCORE()` como número, columnas `VECTOR` truncadas y
+  valores opacos (`‹tipo› n bytes`) del protocolo v1.1.
+- **Consulta** incluye un selector de **Ejemplos** (texto, vectorial, plan,
+  catálogo y DML) y un botón **Prepared** que prepara `SELECT … WHERE id = $1`,
+  la ejecuta dos veces y muestra que el plan se reutiliza.
+- El **autocompletado** conoce `SEARCH`/`SCORE`/`USING`/`WITH`, los plugins del
+  catálogo y sus opciones, además de las tablas y columnas.
+
+Con el mock (`VITE_SOUPCHEF_MOCK=true`) las tablas `docs`, `imagenes` y
+`canciones` permiten probar todo sin motor; el `INSERT`/`DELETE` del mock se
+refleja en las búsquedas para demostrar el mantenimiento automático del índice.
+Contra el motor real, estas funciones dependen de que el gestor tenga activas
+sus fases de SQL de plugins (v0.5.0) y de que el driver `rsoup` sea v0.2.0.
+
 ## Stack
 
 Svelte 5 · TypeScript · Tailwind CSS 4 · Vite · Tauri 2 · pnpm

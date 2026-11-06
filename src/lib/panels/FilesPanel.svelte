@@ -14,13 +14,29 @@
     bplus_clustered: 'B+ agrupado',
     bplus_unclustered: 'B+ no agrupado',
     extendible_hash: 'hash extensible',
+    rtree: 'R-tree',
+    inverted: 'índice invertido',
+    ivf: 'IVF · vectorial',
+    hnsw: 'HNSW · vectorial',
   }
 
   const expanded = new SvelteSet<string>()
 
   const tables = $derived(query.tables)
+  const plugins = $derived(query.plugins)
+  const types = $derived(query.types)
+  const ENCODINGS: Record<number, string> = { 0: 'native', 1: 'fixed', 2: 'variable', 3: 'opaque' }
   const format = (value: number) => value.toLocaleString('es-PE')
-  const typeLabel = (column: ColumnInfo) => (column.length ? `${column.type}(${column.length})` : column.type)
+  const typeLabel = (column: ColumnInfo) => {
+    const base = column.type === 'VECTOR' ? 'VECTOR' : (column.typeName ?? column.type)
+    return column.length ? `${base}(${column.length})` : base
+  }
+
+  const formatOption = (value: unknown) => (typeof value === 'string' ? `'${value}'` : String(value))
+  const optionList = (options: Record<string, unknown>) =>
+    Object.entries(options)
+      .map(([key, value]) => `${key} = ${formatOption(value)}`)
+      .join(', ')
 
   function toggle(name: string) {
     if (expanded.has(name)) expanded.delete(name)
@@ -140,7 +156,20 @@
                           <span class="truncate font-mono text-text">{index.name}</span>
                           <span class="ml-auto shrink-0 font-mono text-subtle">{index.column}</span>
                         </div>
-                        <p class="text-muted">{INDEX_KINDS[index.kind] ?? index.kind}</p>
+                        <p class="text-muted">
+                          {INDEX_KINDS[index.kind] ?? index.kind}
+                          {#if index.plugin}
+                            <span class="font-mono text-accent-text"> · {index.plugin}</span>
+                          {/if}
+                          {#if index.item_count !== undefined}
+                            <span> · {format(index.item_count)} ítems</span>
+                          {/if}
+                        </p>
+                        {#if index.options && Object.keys(index.options).length > 0}
+                          <p class="font-mono text-[0.625rem] text-subtle">
+                            WITH ({optionList(index.options)})
+                          </p>
+                        {/if}
                       </li>
                     {/each}
                   </ul>
@@ -151,5 +180,44 @@
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if plugins.length > 0}
+    <div class="border-t border-line px-3 py-2 text-micro">
+      <p class="text-subtle">Plugins del gestor</p>
+      <ul class="mt-1.5 space-y-1.5" aria-label="Plugins cargados">
+        {#each plugins as plugin (plugin.name)}
+          <li>
+            <div class="flex items-baseline gap-2">
+              <span
+                class="size-1.5 shrink-0 rounded-full {plugin.enabled ? 'bg-accent' : 'bg-subtle'}"
+                aria-hidden="true"
+              ></span>
+              <span class="truncate font-mono font-medium text-text">{plugin.name}</span>
+              <span class="ml-auto shrink-0 font-mono text-subtle">v{plugin.version}</span>
+            </div>
+            {#if plugin.options.length > 0}
+              <p class="ml-3.5 font-mono text-[0.625rem] text-subtle">WITH: {plugin.options.join(', ')}</p>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
+  {#if types.length > 0}
+    <div class="border-t border-line px-3 py-2 text-micro">
+      <p class="text-subtle">Tipos (wire v1.1)</p>
+      <ul class="mt-1.5 space-y-0.5" aria-label="Tipos registrados">
+        {#each types as type (type.name)}
+          <li class="flex items-baseline gap-2">
+            <span class="truncate font-mono text-text">{type.name}</span>
+            <span class="ml-auto shrink-0 font-mono text-subtle">
+              {ENCODINGS[type.encoding] ?? type.encoding}{type.size > 0 ? ` · ${type.size} B` : ''}
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </div>
   {/if}
 </Panel>

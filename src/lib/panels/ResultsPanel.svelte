@@ -58,6 +58,7 @@
         {:else}
           <VirtualTable
             columns={result.columns}
+            types={result.columnTypes}
             rows={result.rows}
             highlighted={highlight.row}
             follow={highlight.source === 'map'}

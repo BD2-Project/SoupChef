@@ -97,7 +97,7 @@ export function layoutPlan(root: PlanNode): PlanLayout {
   return { nodes, edges, columns: Math.max(nextColumn, 1), levels }
 }
 
-const SUMMARY_KEYS = ['index', 'table', 'key', 'group_by', 'predicate', 'count', 'columns']
+const SUMMARY_KEYS = ['plugin', 'index', 'table', 'key', 'group_by', 'predicate', 'count', 'columns']
 
 export function summarizeDetail(detail: Record<string, unknown>): string {
   const key = SUMMARY_KEYS.find((candidate) => candidate in detail) ?? Object.keys(detail)[0]

@@ -9,6 +9,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             driver::connect,
             driver::query_sql,
+            driver::prepare_sql,
+            driver::execute_sql,
+            driver::deallocate_sql,
             driver::begin,
             driver::commit,
             driver::rollback,

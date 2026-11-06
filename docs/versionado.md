@@ -21,11 +21,19 @@ Convención formalizada el 2026-11-02 tras la auditoría de ramas, tags y milest
 |---|---|---|---|---|
 | `v0.1.0` | 2026-09-27 | **Avance 1** | #20 | Cuatro paneles (archivos, consultas CodeMirror, resultados virtualizados, plan), sistema de diseño, conexión al motor real vía driver rsoup |
 | `v0.2.0` | 2026-10-05 | **Entrega Parcial** (espacial) | #34 | Contrato POINT, mapa Leaflet, gráficas secuencial vs R-Tree vs GiST (2.2.4), mapa con datos reales del motor, polígonos de intersección, plan estructurado dibujado, fixes de driver Tauri |
+| `v0.3.0` | 2026-11-06 | **Plugins del gestor** | pendiente | SQL `SEARCH ... USING ... WITH (...)`, `SCORE()`, índices auto-mantenidos visibles, protocolo v1.1 (`VECTOR`/opacos), prepared statements y autocompletado de plugins |
 
 ## Próxima versión
 
-- **v0.3.0**: cierre de *Avance 3* — score de relevancia en búsquedas de texto, galería de imágenes y reproductor de audio para `SIMILAR_TO` (issues #35–#37). Debe sincronizarse con el tag `v0.5.0` del motor SoupDB.
+- **v0.4.0**: LSP propio sobre el parser del gestor (completado y diagnósticos), galería de imágenes y reproductor de audio para resultados multimedia, y TLS cuando el motor lo soporte.
+
+## Matriz de compatibilidad
+
+| SoupChef | rsoup | Gestor (protocolo) | Notas |
+|---|---|---|---|
+| `v0.2.0` | `0.1.0` | v1 (`type_code` numérico) | 6 tipos nativos |
+| `v0.3.0` | `0.2.0` (rama `feat/driver-v11`, commit `21358f7`) | v1.1 (`type_name`/`encoding`, prepared, `VECTOR`, opaque) + plugins (`SEARCH`/`SCORE`, catálogo consultable) | objetivo de esta entrega |
 
 ## Motor asociado
 
-El motor **SoupDB** (repo fuente de las entregas) mantiene los tags de referencia por milestone; este repo los acompaña con su UI correspondiente.
+El motor **SoupDB** (repo fuente de las entregas) mantiene los tags de referencia por milestone; este repo los acompaña con su UI correspondiente. La UI tolera que el gestor todavía no exponga las Fases 4–6: el mock del navegador (`VITE_SOUPCHEF_MOCK=true`) demuestra `SEARCH`/`SCORE`, `VECTOR` y prepared, y el catálogo se degrada si faltan columnas nuevas.

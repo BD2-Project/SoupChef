@@ -1,4 +1,4 @@
-import type { QueryResult, TableInfo } from '../types/contract'
+import type { PluginInfo, QueryResult, TableInfo, TypeInfo } from '../types/contract'
 import type { SoupClient } from './client'
 
 /**
@@ -12,12 +12,37 @@ import type { SoupClient } from './client'
 export class DisconnectedClient implements SoupClient {
   readonly source = 'SoupDB · sin conexión'
   readonly connected = false
+  readonly prepared = false
 
   async listTables(): Promise<TableInfo[]> {
     return []
   }
 
+  async listPlugins(): Promise<PluginInfo[]> {
+    return []
+  }
+
+  async listTypes(): Promise<TypeInfo[]> {
+    return []
+  }
+
   async execute(): Promise<QueryResult> {
+    return this.failure()
+  }
+
+  async prepare(): Promise<void> {
+    throw new Error(this.failure().error?.message)
+  }
+
+  async executePrepared(): Promise<QueryResult> {
+    return this.failure()
+  }
+
+  async deallocate(): Promise<void> {
+    throw new Error(this.failure().error?.message)
+  }
+
+  private failure(): QueryResult {
     return {
       columns: [],
       rows: [],

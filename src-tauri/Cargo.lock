@@ -2654,8 +2654,8 @@ dependencies = [
 
 [[package]]
 name = "rsoup"
-version = "0.1.0"
-source = "git+https://github.com/BD2-Project/rsoup.git?branch=main#609a3f63f6f0a28b048b61d284c70e33ce7a10ce"
+version = "0.2.0"
+source = "git+https://github.com/BD2-Project/rsoup.git?rev=21358f7c579022e6908cf271da8ae392f392dae0#21358f7c579022e6908cf271da8ae392f392dae0"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -3089,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "soupchef"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rsoup",
  "serde",
