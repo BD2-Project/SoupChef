@@ -92,7 +92,7 @@ Para la demo completa, comparte la red con el `docker-compose.yml` de SoupDB
 (el servicio se llama `engine`):
 
 ```bash
-docker run --rm --network soupdb_default -p 3000:3000 \
+docker run --rm --network soupbd_default -p 3000:3000 \
   -e SOUPDB_HOST=engine -e SOUPDB_PORT=55432 \
   ghcr.io/BD2-Project/soupchef:v0.3.0
 ```
