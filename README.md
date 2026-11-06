@@ -83,6 +83,22 @@ docker run --rm -p 3000:3000 \
 El workflow `.github/workflows/container.yml` publica
 `ghcr.io/BD2-Project/soupchef` al empujar un tag `v*`.
 
+Para la demo completa, comparte la red con el `docker-compose.yml` de SoupDB
+(el servicio se llama `engine`):
+
+```bash
+docker run --rm --network soupdb_default -p 3000:3000 \
+  -e SOUPDB_HOST=engine -e SOUPDB_PORT=55432 \
+  ghcr.io/BD2-Project/soupchef:v0.3.0
+```
+
+Si el paquete de GHCR queda **privado**, autentícate antes del `pull`:
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u <usuario> --password-stdin
+docker pull ghcr.io/BD2-Project/soupchef:v0.3.0
+```
+
 ## Plan de ejecución
 
 El plan se pide de forma explícita, como en PostgreSQL. Una consulta normal devuelve solo filas; anteponiendo `EXPLAIN ANALYZE` la consulta se ejecuta pero, en lugar de filas, devuelve el plan: en **Resultados** aparece en texto (operador, detalle, filas, tiempo y accesos a disco) y a la derecha como **diagrama**:
