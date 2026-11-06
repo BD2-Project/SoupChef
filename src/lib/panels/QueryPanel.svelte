@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { client } from '../client'
   import { EXAMPLES } from '../examples'
   import Panel from '../components/Panel.svelte'
@@ -7,8 +8,11 @@
 
   let editor = $state<ReturnType<typeof SqlEditor>>()
 
-  const shortcut =
-    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
+  // Se corrige al hidratar: el servidor no conoce la plataforma del usuario.
+  let shortcut = $state('Ctrl ↵')
+  onMount(() => {
+    shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵'
+  })
   const error = $derived(query.result?.error ?? null)
 
   function loadExample(event: Event) {

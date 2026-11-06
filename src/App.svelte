@@ -11,9 +11,11 @@
   import ResultsPanel from './lib/panels/ResultsPanel.svelte'
   import { query } from './lib/query.svelte'
   import { pointColumnIndex } from './lib/spatial'
+  import { theme } from './lib/theme.svelte'
 
   // En SSR no hay motor al otro lado del módulo; el catálogo se pide al hidratar.
   onMount(() => {
+    theme.sync()
     void query.loadTables()
   })
 

@@ -2,14 +2,15 @@ export type Theme = 'dark' | 'light'
 
 const STORAGE_KEY = 'soupchef-theme'
 
-/** En SSR no hay DOM; el script de app.html fija el tema al hidratar. */
-function initialTheme(): Theme {
-  if (typeof document === 'undefined') return 'dark'
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
-}
-
 class ThemeState {
-  current = $state<Theme>(initialTheme())
+  // SSR y el primer render del cliente deben coincidir; onMount aplica la
+  // preferencia real que app.html ya dejó en el DOM.
+  current = $state<Theme>('dark')
+
+  sync(): void {
+    if (typeof document === 'undefined') return
+    this.current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+  }
 
   toggle(): void {
     this.set(this.current === 'dark' ? 'light' : 'dark')

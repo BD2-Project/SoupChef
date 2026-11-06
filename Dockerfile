@@ -2,9 +2,7 @@
 # La app de escritorio (Tauri) se sigue empaquetando aparte con `pnpm build:tauri`.
 
 FROM node:22-slim AS base
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN npm install -g pnpm@10
 WORKDIR /app
 
 FROM base AS deps
@@ -22,7 +20,7 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 
